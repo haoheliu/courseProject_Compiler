@@ -140,7 +140,7 @@ class Token implements java.io.Serializable {
     {
         return image;
     }
-}
+} 
 
 /**用于存储词法分析中遇到的标识符
  * */
