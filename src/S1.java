@@ -101,6 +101,7 @@ class Token implements java.io.Serializable {
     public int endColumn;
     //token的字符串镜像
     public String image;
+    //token的值,变量的定义
     //对下一个token的引用,相当于C语言里边的next指针
     public Token next;
 
@@ -407,11 +408,15 @@ class S1Parser implements S1Constants
     }
     private void printlnStatement()
     {
+        String temp;
         consume(PRINTLN);
         consume(LEFTPAREN);
-        expr();
+        outFile.println(";println Statement");
+        temp = expr();
         consume(RIGHTPAREN);
         consume(SEMICOLON);
+        outFile.println("print"+"\t\t"+temp);
+        outFile.println("print"+"\t\t"+"\n");
     }
 
     private String expr()
