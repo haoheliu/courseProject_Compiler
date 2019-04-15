@@ -1,2 +1,7 @@
-y = a+b+(e+s)*c+d;
-println(a+b+c);
+while(x)
+{
+	x = 1+2;
+}
+
+
+

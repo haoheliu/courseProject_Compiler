@@ -14,7 +14,7 @@ class Compiler
             System.exit(1);
         }
         boolean debug = false;
-        System.out.println(System.getProperty("user.dir"));
+        System.out.println("Directory: "+System.getProperty("user.dir"));
         //输入为一个.c--
         String inFileName = args[0];
         //输出为一个.a文件，可以为我们的assembler使用
@@ -140,7 +140,7 @@ class Token implements java.io.Serializable {
     {
         return image;
     }
-} 
+}
 
 /**用于存储词法分析中遇到的标识符
  * */
@@ -465,11 +465,13 @@ class Parser implements Constants
         switch(currentToken.kind)
         {
             case ID:
+            case WHILE:
             case PRINTLN:
                 statement();
                 statementList();
                 break;
             case EOF:
+            case RIGHTBRACE:
                 break;
             default:
                 throw genEx("Expecting statement or <EOF>");
@@ -524,19 +526,28 @@ class Parser implements Constants
 
     private void compoundStatement()
     {
-
+        consume(LEFTBRACE);
+        statementList();
+        consume(RIGHTBRACE);
     }
 
     private void whileStatement()
     {
+        String judge_point = identifierGenerate();
+        String judge;
+        outFile.println(judge_point+":");
         Token t = currentToken;
-
         consume(WHILE);
         consume(LEFTPAREN);
-        expr();
+        judge = expr();
+        outFile.println("jne"+"\t0"+"\t"+judge+"\tExit");
         consume(RIGHTPAREN);
         statement();
+        outFile.println("j"+"\t"+judge_point);
+        outFile.println("Exit:");
+        System.out.println("Successfully parse while");
     }
+
     private String expr()
     {
         String term_val,expr_val,termlist_syn;
