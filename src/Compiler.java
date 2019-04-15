@@ -2,7 +2,7 @@ import java.io.*;
 import java.util.*;
 
 
-class S1
+class Compiler
 {
     public static void main(String[] args) throws IOException
     {
@@ -13,7 +13,6 @@ class S1
             System.err.println("Wrong number cmd line args");
             System.exit(1);
         }
-
         boolean debug = false;
         System.out.println(System.getProperty("user.dir"));
         //输入为一个.c--
@@ -25,12 +24,12 @@ class S1
         //文件输出
         PrintWriter outFile = new PrintWriter(outFileName);
         //符号表
-        S1SymTab st = new S1SymTab();
+        SymTab st = new SymTab();
         //词法分析器
-        S1TokenMgr tm =  new S1TokenMgr(inFile);
+        TokenMgr tm =  new TokenMgr(inFile);
         //代码生成器
         //语法分析器
-        S1Parser parser = new S1Parser(st, tm, outFile);
+        Parser parser = new Parser(st, tm, outFile);
 
         try
         {
@@ -51,11 +50,11 @@ class S1
 /**这个接口定义了各种我们可能使用到的标识符类型
  * 后续词法分析器和语法分析器等都是对这个接口的实现
  * */
-interface S1Constants
+interface Constants
 {
-
-    int EOF = 0;        //文档结束
-    int PRINTLN = 1;    //println
+    // integers that identify token kinds
+    int EOF = 0;
+    int PRINTLN = 1;
     int UNSIGNED = 2;
     int ID = 3;
     int ASSIGN = 4;
@@ -66,7 +65,18 @@ interface S1Constants
     int MINUS = 9;
     int TIMES = 10;
     int ERROR = 11;
+    int DIVIDE = 12;
+    int LEFTBRACE = 13;
+    int RIGHTBRACE = 14;
+    int PRINT = 15;
+    int READINT = 16;
+    int STRING = 17;
+    int WHILE = 18;
+    int IF = 19;
+    int ELSE = 20;
+    int DO = 21;
 
+    // tokenImage provides string for each token kind
     String[] tokenImage =
             {
                     "<EOF>",
@@ -80,7 +90,17 @@ interface S1Constants
                     "\"+\"",
                     "\"-\"",
                     "\"*\"",
-                    "<ERROR>"
+                    "<ERROR>",
+                    "\"/\"",
+                    "\"{\"",
+                    "\"}\"",
+                    "\"print\"",
+                    "\"readint\"",
+                    "<STRING>",
+                    "\"while\"",
+                    "\"if\"",
+                    "\"else\"",
+                    "\"do\""
             };
 }
 
@@ -124,11 +144,11 @@ class Token implements java.io.Serializable {
 
 /**用于存储词法分析中遇到的标识符
  * */
-class S1SymTab
+class SymTab
 {
     private ArrayList<String> symbol;
     //ArrayList: add & indexOf
-    public S1SymTab()
+    public SymTab()
     {
         symbol = new ArrayList<String>();
     }
@@ -152,41 +172,38 @@ class S1SymTab
 }
 
 
-class S1TokenMgr implements S1Constants
+class TokenMgr implements Constants
 {
     private Scanner inFile;
     private char currentChar;
     private int currentColumnNumber;
     private int currentLineNumber;
-    private String inputLine;
-    private Token token;
-    private StringBuffer buffer;
-
-    public S1TokenMgr(Scanner inFile)
+    private String inputLine;     // holds 1 line of input
+    private Token token;          // holds 1 token
+    private StringBuffer buffer;  // token image built here
+    private boolean inString;
+    //-----------------------------------------
+    public TokenMgr(Scanner inFile)
     {
         this.inFile = inFile;
-        currentChar = '\n';
+        currentChar = '\n';        //  '\n' triggers read
         currentLineNumber = 0;
         buffer = new StringBuffer();
+        inString = false;
     }
-
-    /**
-     * 获得下一个token对象
-     * */
+    //-----------------------------------------
     public Token getNextToken()
     {
-        //跳过空白符
+        // skip whitespace
         while (Character.isWhitespace(currentChar))
             getNextChar();
-        //实例化一个token对象
-        token = new Token();
-        //下一个token的引用
-        token.next = null;
 
+        token = new Token();
+        token.next = null;
         token.beginLine = currentLineNumber;
         token.beginColumn = currentColumnNumber;
 
-        //判断是否读取完毕，读取到文件的<EOF>
+        // check for EOF
         if (currentChar == EOF)
         {
             token.image = "<EOF>";
@@ -194,14 +211,11 @@ class S1TokenMgr implements S1Constants
             token.endColumn = currentColumnNumber;
             token.kind = EOF;
         }
-        //没有读取结束
+
         else
-            /*__________整数部分的读取__________*/
             if (Character.isDigit(currentChar))
             {
-                //清空缓冲区
                 buffer.setLength(0);
-                //开始读取整数
                 do
                 {
                     buffer.append(currentChar);
@@ -209,12 +223,11 @@ class S1TokenMgr implements S1Constants
                     token.endColumn = currentColumnNumber;
                     getNextChar();
                 } while (Character.isDigit(currentChar));
-                token.image = buffer.toString();//image就是这个整数本身转化为字符串
+                token.image = buffer.toString();
                 token.kind = UNSIGNED;
             }
 
             else
-                /*__________标识符的读取__________*/
                 if (Character.isLetter(currentChar))
                 {
                     buffer.setLength(0);
@@ -227,15 +240,80 @@ class S1TokenMgr implements S1Constants
                     } while (Character.isLetterOrDigit(currentChar));
                     token.image = buffer.toString();
 
-                    if (token.image.equals("println")) //判断是否是关键字
+                    if (token.image.equals("println"))
                         token.kind = PRINTLN;
                     else
+                    if (token.image.equals("readint"))
+                        token.kind = READINT;
+                    else
+                    if (token.image.equals("while"))
+                        token.kind = WHILE;
+                    else
+                    if (token.image.equals("if"))
+                        token.kind = IF;
+                    else
+                    if (token.image.equals("do"))
+                        token.kind = DO;
+                    else
+                    if (token.image.equals("else"))
+                        token.kind = ELSE;
+                    else  // not a keyword so kind is ID
                         token.kind = ID;
                 }
+                else if (currentChar == '"') {
+                    boolean done = false;
+                    inString = true;
+                    int backslashCounter = 0;
+                    buffer.setLength(0);  // clear buffer
 
-                else
+                    while (!done) {
+                        do  // build token image in buffer
+                        {
+                            if (currentChar == '\\'){
+                                backslashCounter++;
+                            }
+
+                            buffer.append(currentChar);
+                            getNextChar();
+
+                            if (currentChar != '\\' && currentChar != '"'){
+                                backslashCounter = 0;
+                            }
+
+                            try {
+                                if (currentChar == '\\' && inputLine.charAt(currentColumnNumber+1) == '\n'){
+                                    getNextChar();
+                                }
+                            } catch (Exception e) {
+                                getNextChar();
+                            }
+
+                            if (currentChar == '\n' || currentChar == '\r') {
+                                break;
+                            }
+                        } while (currentChar != '"');
+                        if (currentChar =='"' && backslashCounter % 2 == 0)
+                        {
+                            done = true;
+                            backslashCounter = 0;
+                            buffer.append(currentChar);
+                            token.kind = STRING;
+                        }
+                        else if (currentChar =='"' && backslashCounter % 2 != 0) {
+                            backslashCounter = 0;
+                            continue;
+                        }
+                        else
+                            token.kind = ERROR;
+                        token.endLine = currentLineNumber;
+                        token.endColumn = currentColumnNumber;
+                        getNextChar();
+                        token.image = buffer.toString();
+                        inString = false;
+                    }
+                }
+                else  // process single-character token
                 {
-                    /*__________单个字符的读取__________*/
                     switch(currentChar)
                     {
                         case '=':
@@ -259,56 +337,76 @@ class S1TokenMgr implements S1Constants
                         case '*':
                             token.kind = TIMES;
                             break;
+                        case '/':
+                            token.kind = DIVIDE;
+                            break;
+                        case '{':
+                            token.kind = LEFTBRACE;
+                            break;
+                        case '}':
+                            token.kind = RIGHTBRACE;
+                            break;
                         default:
                             token.kind = ERROR;
                             break;
                     }
 
+                    // save currentChar as String in token.image
                     token.image = Character.toString(currentChar);
+
+                    // save token end location
                     token.endLine = currentLineNumber;
                     token.endColumn = currentColumnNumber;
 
-                    getNextChar();
+                    getNextChar();  // read beyond end
                 }
 
         return token;
     }
-
+    //-----------------------------------------
     private void getNextChar()
     {
-        // 删掉了EOF判断,这里不需要
+        if (currentChar == EOF)
+            return;
+
         if (currentChar == '\n')
         {
-            if (inFile.hasNextLine())
+            if (inFile.hasNextLine())     // any lines left?
             {
-                inputLine = inFile.nextLine();
-                inputLine = inputLine + "\n";
-                //从头读取一行
-                currentColumnNumber = 0;
+                inputLine = inFile.nextLine();  // get next line
+                inputLine = inputLine + "\n";   // mark line end
                 currentLineNumber++;
+                currentColumnNumber = 0;
             }
-            else
+            else  // at EOF
             {
-                //读到没有行就认为是结束了
                 currentChar = EOF;
                 return;
             }
         }
-        currentChar = inputLine.charAt(currentColumnNumber++);
+
+        // check if single-line comment
+        if (!inString &&
+                inputLine.charAt(currentColumnNumber) == '/' &&
+                inputLine.charAt(currentColumnNumber+1) == '/')
+            currentChar = '\n';  // forces end of line
+        else
+            currentChar =
+                    inputLine.charAt(currentColumnNumber++);
     }
 }
 
-class S1Parser implements S1Constants
+class Parser implements Constants
 {
-    private S1SymTab st;
-    private S1TokenMgr tm;
+    private SymTab st;
+    private TokenMgr tm;
     private PrintWriter outFile;
     private Token currentToken;
     private Token previousToken;
     private int identifiercount;
     private Map<String,String> identifier;
 
-    public S1Parser(S1SymTab st, S1TokenMgr tm, PrintWriter outFile)
+    public Parser(SymTab st, TokenMgr tm, PrintWriter outFile)
     {
         this.st = st;
         this.tm = tm;
@@ -330,7 +428,6 @@ class S1Parser implements S1Constants
                 currentToken.image + "\" on line " +
                 currentToken.beginLine + ", column " +
                 currentToken.beginColumn + "." +
-                System.getProperty("line.separator") +
                 errorMessage);
     }
 
@@ -389,6 +486,12 @@ class S1Parser implements S1Constants
             case PRINTLN:
                 printlnStatement();
                 break;
+            case WHILE:
+                whileStatement();
+                break;
+            case LEFTBRACE:
+                compoundStatement();
+                break;
             default:
                 throw genEx("Expecting statement");
         }
@@ -419,6 +522,21 @@ class S1Parser implements S1Constants
         outFile.println("print"+"\t\t"+"\n");
     }
 
+    private void compoundStatement()
+    {
+
+    }
+
+    private void whileStatement()
+    {
+        Token t = currentToken;
+
+        consume(WHILE);
+        consume(LEFTPAREN);
+        expr();
+        consume(RIGHTPAREN);
+        statement();
+    }
     private String expr()
     {
         String term_val,expr_val,termlist_syn;
