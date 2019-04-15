@@ -372,12 +372,12 @@ class S1Parser implements S1Constants
                 statementList();
                 break;
             case EOF:
-                ;
                 break;
             default:
                 throw genEx("Expecting statement or <EOF>");
         }
     }
+
     private void statement()
     {
         switch(currentToken.kind)
@@ -401,6 +401,7 @@ class S1Parser implements S1Constants
         st.enter(t.image);
         consume(ASSIGN);
         String temp = expr();
+        outFile.println("mov"+"\t"+temp+"\t"+t.image);
         System.out.println(temp);
         consume(SEMICOLON);
     }
@@ -454,7 +455,6 @@ class S1Parser implements S1Constants
         factorlist_syn = factorList(factorlist_inh);
         term_val = factorlist_syn;
         return term_val;
-
     }
 
     private String factorList(String inh)
