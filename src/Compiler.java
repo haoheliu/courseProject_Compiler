@@ -419,7 +419,7 @@ class Parser implements Constants
 
     private String identifierGenerate()
     {
-        return "L"+this.identifiercount++;
+        return "$t"+this.identifiercount++;
     }
 
     private RuntimeException genEx(String errorMessage)
@@ -437,8 +437,7 @@ class Parser implements Constants
         if (currentToken.next != null)
             currentToken = currentToken.next;
         else
-            currentToken =
-                    currentToken.next = tm.getNextToken();
+            currentToken = currentToken.next = tm.getNextToken();
     }
 
 
@@ -455,9 +454,11 @@ class Parser implements Constants
     }
     private void program()
     {
+        outFile.println("\t.text");
         statementList();
         if (currentToken.kind != EOF)
             throw genEx("Expecting <EOF>");
+        dataSegment();
     }
 
     private void statementList()
@@ -507,10 +508,11 @@ class Parser implements Constants
         st.enter(t.image);
         consume(ASSIGN);
         String temp = expr();
-        outFile.println("mov"+"\t"+temp+"\t"+t.image);
+        outFile.println("mov"+"\t"+temp+",\t"+t.image);
         System.out.println(temp);
         consume(SEMICOLON);
     }
+
     private void printlnStatement()
     {
         String temp;
@@ -540,7 +542,7 @@ class Parser implements Constants
         consume(WHILE);
         consume(LEFTPAREN);
         judge = expr();
-        outFile.println("jne"+"\t0"+"\t"+judge+"\tExit");
+        outFile.println("bne"+"\t0"+",\t"+judge+",\tExit");
         consume(RIGHTPAREN);
         statement();
         outFile.println("j"+"\t"+judge_point);
@@ -568,9 +570,19 @@ class Parser implements Constants
                 termlist_inh = inh + "+" + term_val;
                 String newidentifier = identifierGenerate();
                 System.out.println("inh:"+inh+"\tterm_val:"+term_val + "\t+"+" -> "+newidentifier);
-                outFile.println("add"+"\t"+inh +"\t" + term_val +"\t"+newidentifier);
+                outFile.println("add"+"\t"+inh +",\t" + term_val +",\t"+newidentifier);
                 identifier.put(newidentifier,termlist_inh);
                 termlist_syn = termList(newidentifier);
+                break;
+            case MINUS:
+                consume(MINUS);
+                term_val = term();
+                termlist_inh = inh + "+" +term_val;
+                String newidentifier_minus = identifierGenerate();
+                System.out.println("inh:"+inh+"\tterm_val:"+term_val + "\t-"+" -> "+newidentifier_minus);
+                outFile.println("sub"+"\t"+inh +",\t" + term_val +",\t"+newidentifier_minus);
+                identifier.put(newidentifier_minus,termlist_inh);
+                termlist_syn = termList(newidentifier_minus);
                 break;
             case RIGHTPAREN:
             case SEMICOLON:
@@ -602,11 +614,22 @@ class Parser implements Constants
                 factorlist_inh = inh + "*" +factor_val;
                 String newidentifier = identifierGenerate();
                 System.out.println("inh:"+inh+"\tfactor_val:"+factor_val + "\t*"+" -> "+newidentifier);
-                outFile.println("mult"+"\t"+inh+"\t"+factor_val+"\t"+newidentifier);
+                outFile.println("mult"+"\t"+inh+",\t"+factor_val+",\t"+newidentifier);
                 identifier.put(newidentifier, factorlist_inh);
                 factorlist_syn = factorList(newidentifier);
                 break;
+            case DIVIDE:
+                consume(DIVIDE);
+                factor_val = factor();
+                factorlist_inh = inh + "/" +factor_val;
+                String newidentifier_div = identifierGenerate();
+                System.out.println("inh:"+inh+"\tfactor_val:"+factor_val + "\t/"+" -> "+newidentifier_div);
+                outFile.println("div"+"\t"+inh+",\t"+factor_val+",\t"+newidentifier_div);
+                identifier.put(newidentifier_div, factorlist_inh);
+                factorlist_syn = factorList(newidentifier_div);
+                break;
             case PLUS:
+            case MINUS:
             case RIGHTPAREN:
             case SEMICOLON:
                 factorlist_syn = inh;
@@ -655,6 +678,15 @@ class Parser implements Constants
                 throw genEx("Expecting factor");
         }
         return factor_val;
+    }
+    private void dataSegment()
+    {
+        outFile.println("\t"+".data");
+        for(int i=0;i<st.getSize();i++)
+        {
+            String symbol = st.getSymbol(i);
+            outFile.println(symbol+":\t"+".word\t"+"0");
+        }
     }
 }
 
