@@ -404,7 +404,6 @@ class Parser implements Constants
     private Token currentToken;
     private Token previousToken;
     private int identifiercount;
-    private Map<String,String> identifier;
 
     public Parser(SymTab st, TokenMgr tm, PrintWriter outFile)
     {
@@ -412,14 +411,17 @@ class Parser implements Constants
         this.tm = tm;
         this.outFile = outFile;
         this.identifiercount = 0;
-        this.identifier = new HashMap<>();
         currentToken = tm.getNextToken();
         previousToken = null;
     }
 
-    private String identifierGenerate()
+    private String registerAvailable()
     {
         return "$t"+this.identifiercount++;
+    }
+    private void resetRegister()
+    {
+        this.identifiercount = 0;
     }
 
     private RuntimeException genEx(String errorMessage)
@@ -505,10 +507,18 @@ class Parser implements Constants
         Token t;
         t = currentToken;
         consume(ID);
+        //Use $t0 register for assignment statement temporary data storage
+        String reg = registerAvailable();
+        outFile.println("lw\t"+reg+"\t"+t.image);
         st.enter(t.image);
         consume(ASSIGN);
+
         String temp = expr();
-        outFile.println("mov"+"\t"+temp+",\t"+t.image);
+        String reg_temp = isNeedRegister(temp);
+        outFile.println("move\t"+reg+"\t"+reg_temp);
+        outFile.println("sw\t"+reg+"\t"+t.image);
+//        outFile.println("mov"+"\t"+temp+",\t"+t.image);
+        resetRegister();
         System.out.println(temp);
         consume(SEMICOLON);
     }
@@ -518,12 +528,15 @@ class Parser implements Constants
         String temp;
         consume(PRINTLN);
         consume(LEFTPAREN);
-        outFile.println(";println Statement");
+        outFile.println("#println Statement");
         temp = expr();
+        String reg_temp = isNeedRegister(temp);
+        outFile.println("li\t"+"$v0,\t"+"1");
+        outFile.println("move\t"+"$a0\t"+reg_temp);
+        outFile.println("syscall");
         consume(RIGHTPAREN);
         consume(SEMICOLON);
-        outFile.println("print"+"\t\t"+temp);
-        outFile.println("print"+"\t\t"+"\n");
+
     }
 
     private void compoundStatement()
@@ -535,7 +548,7 @@ class Parser implements Constants
 
     private void whileStatement()
     {
-        String judge_point = identifierGenerate();
+        String judge_point = registerAvailable();
         String judge;
         outFile.println(judge_point+":");
         Token t = currentToken;
@@ -559,6 +572,34 @@ class Parser implements Constants
         return expr_val;
     }
 
+    private String isNeedRegister(String term)
+    {
+        System.out.println(term);
+        if(term.charAt(0) == '$')
+        {
+            return term;
+        }else if(Character.isDigit(term.charAt(0)))
+        {
+            String reg = registerAvailable();
+            outFile.println("li"+"\t"+reg+"\t"+term);
+            return reg;
+        }
+        else
+        {
+            String reg = registerAvailable();
+            outFile.println("lw"+"\t"+reg+"\t"+term);
+            return reg;
+        }
+    }
+    private void isNeedStoreRegister(String reg,String term)
+    {
+        if(reg != "")
+        {
+            outFile.println("sw\t"+reg+"\t"+term);
+        }
+
+    }
+
     private String termList(String inh)
     {
         String termlist_inh,term_val,termlist_syn;
@@ -568,20 +609,24 @@ class Parser implements Constants
                 consume(PLUS);
                 term_val = term();
                 termlist_inh = inh + "+" + term_val;
-                String newidentifier = identifierGenerate();
-                System.out.println("inh:"+inh+"\tterm_val:"+term_val + "\t+"+" -> "+newidentifier);
-                outFile.println("add"+"\t"+inh +",\t" + term_val +",\t"+newidentifier);
-                identifier.put(newidentifier,termlist_inh);
+
+                String reg_inh = isNeedRegister(inh);
+                String reg_term_val = isNeedRegister(term_val);
+                String newidentifier = registerAvailable();
+
+                outFile.println("add"+"\t"+newidentifier +",\t" + reg_term_val +",\t"+reg_inh);
+
+//                isNeedStoreRegister(reg_inh, inh);
+//                isNeedStoreRegister(reg_term_val, term_val);
+
                 termlist_syn = termList(newidentifier);
                 break;
             case MINUS:
                 consume(MINUS);
                 term_val = term();
                 termlist_inh = inh + "+" +term_val;
-                String newidentifier_minus = identifierGenerate();
-                System.out.println("inh:"+inh+"\tterm_val:"+term_val + "\t-"+" -> "+newidentifier_minus);
-                outFile.println("sub"+"\t"+inh +",\t" + term_val +",\t"+newidentifier_minus);
-                identifier.put(newidentifier_minus,termlist_inh);
+                String newidentifier_minus = registerAvailable();
+                outFile.println("sub"+"\t"+newidentifier_minus +",\t" + term_val +",\t"+inh);
                 termlist_syn = termList(newidentifier_minus);
                 break;
             case RIGHTPAREN:
@@ -612,20 +657,16 @@ class Parser implements Constants
                 consume(TIMES);
                 factor_val = factor();
                 factorlist_inh = inh + "*" +factor_val;
-                String newidentifier = identifierGenerate();
-                System.out.println("inh:"+inh+"\tfactor_val:"+factor_val + "\t*"+" -> "+newidentifier);
-                outFile.println("mult"+"\t"+inh+",\t"+factor_val+",\t"+newidentifier);
-                identifier.put(newidentifier, factorlist_inh);
+                String newidentifier = registerAvailable();
+                outFile.println("mult"+"\t"+newidentifier+",\t"+factor_val+",\t"+inh);
                 factorlist_syn = factorList(newidentifier);
                 break;
             case DIVIDE:
                 consume(DIVIDE);
                 factor_val = factor();
                 factorlist_inh = inh + "/" +factor_val;
-                String newidentifier_div = identifierGenerate();
-                System.out.println("inh:"+inh+"\tfactor_val:"+factor_val + "\t/"+" -> "+newidentifier_div);
-                outFile.println("div"+"\t"+inh+",\t"+factor_val+",\t"+newidentifier_div);
-                identifier.put(newidentifier_div, factorlist_inh);
+                String newidentifier_div = registerAvailable();
+                outFile.println("div"+"\t"+newidentifier_div+",\t"+factor_val+",\t"+inh);
                 factorlist_syn = factorList(newidentifier_div);
                 break;
             case PLUS:
