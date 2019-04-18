@@ -1,3 +1,9 @@
+/**
+ * @Copyright
+ * Author: Haohe Liu from NWPU
+ * Time: April.2019
+ * */
+
 import java.io.*;
 import java.util.*;
 
@@ -170,7 +176,6 @@ class SymTab
         return symbol.size();
     }
 }
-
 
 class TokenMgr implements Constants
 {
@@ -404,25 +409,33 @@ class Parser implements Constants
     private Token currentToken;
     private Token previousToken;
     private int identifiercount;
-
+    private int registercount;
     public Parser(SymTab st, TokenMgr tm, PrintWriter outFile)
     {
         this.st = st;
         this.tm = tm;
         this.outFile = outFile;
         this.identifiercount = 0;
+        this.registercount = 0;
         currentToken = tm.getNextToken();
         previousToken = null;
     }
 
+    /**
+     * registerAvailable: return a free register
+     * resetRegister: clear and reset the use of registers
+     * identifierAvailable: Generate a label for jump instruction
+     * */
+
     private String registerAvailable()
     {
-        return "$t"+this.identifiercount++;
+        return "$t"+this.registercount++;
     }
     private void resetRegister()
     {
-        this.identifiercount = 0;
+        this.registercount = 0;
     }
+    private String identifierAvailable(){ return "L"+this.identifiercount++;}
 
     private RuntimeException genEx(String errorMessage)
     {
@@ -450,10 +463,12 @@ class Parser implements Constants
         else
             throw genEx("Expecting " + tokenImage[expected]);
     }
+
     public void parse()
     {
         program();
     }
+
     private void program()
     {
         outFile.println("\t.text");
@@ -507,12 +522,10 @@ class Parser implements Constants
         Token t;
         t = currentToken;
         consume(ID);
-        //Use $t0 register for assignment statement temporary data storage
         String reg = registerAvailable();
         outFile.println("lw\t"+reg+"\t"+t.image);
         st.enter(t.image);
         consume(ASSIGN);
-
         String temp = expr();
         String reg_temp = isNeedRegister(temp);
         outFile.println("move\t"+reg+"\t"+reg_temp);
@@ -548,14 +561,16 @@ class Parser implements Constants
 
     private void whileStatement()
     {
-        String judge_point = registerAvailable();
+        String judge_point = identifierAvailable();
         String judge;
         outFile.println(judge_point+":");
-        Token t = currentToken;
         consume(WHILE);
         consume(LEFTPAREN);
         judge = expr();
-        outFile.println("bne"+"\t0"+",\t"+judge+",\tExit");
+
+        String reg_judge = isNeedRegister(judge);
+
+        outFile.println("beq"+"\t$zero"+",\t"+reg_judge+",\tExit");
         consume(RIGHTPAREN);
         statement();
         outFile.println("j"+"\t"+judge_point);
@@ -572,6 +587,9 @@ class Parser implements Constants
         return expr_val;
     }
 
+    /**
+     *Allocate register for data in memory or immediate data
+     * */
     private String isNeedRegister(String term)
     {
         System.out.println(term);
@@ -591,43 +609,35 @@ class Parser implements Constants
             return reg;
         }
     }
-    private void isNeedStoreRegister(String reg,String term)
-    {
-        if(reg != "")
-        {
-            outFile.println("sw\t"+reg+"\t"+term);
-        }
-
-    }
 
     private String termList(String inh)
     {
-        String termlist_inh,term_val,termlist_syn;
+        String term_val,termlist_syn;
         switch(currentToken.kind)
         {
             case PLUS:
                 consume(PLUS);
                 term_val = term();
-                termlist_inh = inh + "+" + term_val;
 
                 String reg_inh = isNeedRegister(inh);
                 String reg_term_val = isNeedRegister(term_val);
-                String newidentifier = registerAvailable();
+                String reg_plus = registerAvailable();
 
-                outFile.println("add"+"\t"+newidentifier +",\t" + reg_term_val +",\t"+reg_inh);
+                outFile.println("add"+"\t"+reg_plus +",\t" + reg_term_val +",\t"+reg_inh);
 
-//                isNeedStoreRegister(reg_inh, inh);
-//                isNeedStoreRegister(reg_term_val, term_val);
-
-                termlist_syn = termList(newidentifier);
+                termlist_syn = termList(reg_plus);
                 break;
             case MINUS:
                 consume(MINUS);
                 term_val = term();
-                termlist_inh = inh + "+" +term_val;
-                String newidentifier_minus = registerAvailable();
-                outFile.println("sub"+"\t"+newidentifier_minus +",\t" + term_val +",\t"+inh);
-                termlist_syn = termList(newidentifier_minus);
+
+                String reg_inh_minus = isNeedRegister(inh);
+                String reg_term_val_minus = isNeedRegister(term_val);
+                String reg_minus = registerAvailable();
+
+                outFile.println("sub"+"\t"+reg_minus +",\t" + reg_inh_minus +",\t"+reg_term_val_minus);
+
+                termlist_syn = termList(reg_minus);
                 break;
             case RIGHTPAREN:
             case SEMICOLON:
@@ -650,23 +660,33 @@ class Parser implements Constants
 
     private String factorList(String inh)
     {
-        String factorlist_inh,factor_val,factorlist_syn;
+        String factor_val,factorlist_syn;
         switch(currentToken.kind)
         {
             case TIMES:
                 consume(TIMES);
                 factor_val = factor();
-                factorlist_inh = inh + "*" +factor_val;
+
+                String reg_inh = isNeedRegister(inh);
+                String reg_factor_val = isNeedRegister(factor_val);
+
                 String newidentifier = registerAvailable();
-                outFile.println("mult"+"\t"+newidentifier+",\t"+factor_val+",\t"+inh);
+                outFile.println("mult"+"\t"+reg_inh+",\t"+reg_factor_val);
+                outFile.println("mflo\t"+newidentifier);
+
                 factorlist_syn = factorList(newidentifier);
                 break;
             case DIVIDE:
                 consume(DIVIDE);
                 factor_val = factor();
-                factorlist_inh = inh + "/" +factor_val;
+
+                String reg_inh_div = isNeedRegister(inh);
+                String reg_factor_val_div = isNeedRegister(factor_val);
                 String newidentifier_div = registerAvailable();
-                outFile.println("div"+"\t"+newidentifier_div+",\t"+factor_val+",\t"+inh);
+
+                outFile.println("div"+"\t"+reg_inh_div+",\t"+reg_factor_val_div);
+                outFile.println("mflo\t"+newidentifier_div);
+
                 factorlist_syn = factorList(newidentifier_div);
                 break;
             case PLUS:
@@ -720,6 +740,10 @@ class Parser implements Constants
         }
         return factor_val;
     }
+    /**
+     * Generate ".data" segment in MIPS instructions
+     * Based on symbol table we have
+     * */
     private void dataSegment()
     {
         outFile.println("\t"+".data");
