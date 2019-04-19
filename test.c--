@@ -1,6 +1,9 @@
 a = 5;
+
 while(a)
 {
     a = a-1;
-    println(a);
+    println(a); //some comment
 }
+
+println(b);

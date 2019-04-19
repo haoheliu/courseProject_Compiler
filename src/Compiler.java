@@ -4,6 +4,8 @@
  * Time: April.2019
  * */
 
+import org.omg.PortableInterceptor.SYSTEM_EXCEPTION;
+
 import java.io.*;
 import java.util.*;
 
@@ -485,6 +487,7 @@ class Parser implements Constants
             case ID:
             case WHILE:
             case PRINTLN:
+            case IF:
                 statement();
                 statementList();
                 break;
@@ -511,6 +514,9 @@ class Parser implements Constants
                 break;
             case LEFTBRACE:
                 compoundStatement();
+                break;
+            case IF:
+                ifStatement();
                 break;
             default:
                 throw genEx("Expecting statement");
@@ -562,6 +568,7 @@ class Parser implements Constants
     private void whileStatement()
     {
         String judge_point = identifierAvailable();
+        String judge_exit = identifierAvailable();
         String judge;
         outFile.println(judge_point+":");
         consume(WHILE);
@@ -570,12 +577,40 @@ class Parser implements Constants
 
         String reg_judge = isNeedRegister(judge);
 
-        outFile.println("beq"+"\t$zero"+",\t"+reg_judge+",\tExit");
+        outFile.println("beq"+"\t$zero"+",\t"+reg_judge+",\t"+judge_exit);
         consume(RIGHTPAREN);
         statement();
         outFile.println("j"+"\t"+judge_point);
-        outFile.println("Exit:");
+        outFile.println(judge_exit+":");
         System.out.println("Successfully parse while");
+    }
+
+    //-----------------------------------------
+    private void ifStatement() {
+        String judge_else = identifierAvailable();
+        String judge_exit = identifierAvailable();
+        consume(IF);
+        consume(LEFTPAREN);
+        String judge = expr();
+        String reg_judge = isNeedRegister(judge);
+        outFile.println("beq"+"\t$zero"+",\t"+reg_judge+",\t"+judge_else);
+        consume(RIGHTPAREN);
+        statement();
+        outFile.println("j"+"\t"+judge_exit);
+        elsePart(judge_else);
+        outFile.println(judge_exit+":");
+    }
+    //-----------------------------------------
+    private void elsePart(String judge_else) {
+        outFile.println(judge_else+":");
+        switch (currentToken.kind) {
+            case ELSE:
+                consume(ELSE);
+                statement();
+                break;
+            default:
+        }
+
     }
 
     private String expr()
