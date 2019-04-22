@@ -55,6 +55,7 @@ class Compiler
     }
 }
 
+
 /**这个接口定义了各种我们可能使用到的标识符类型
  * 后续词法分析器和语法分析器等都是对这个接口的实现
  * */
@@ -111,6 +112,8 @@ interface Constants
                     "\"do\""
             };
 }
+
+
 
 /**对于一个token,我们保留它的起始位置和终止位置
  * 同时保存它的类型和image(就是这个东西在.c--文件里边本身长什么样子)
@@ -218,7 +221,6 @@ class TokenMgr implements Constants
             token.endColumn = currentColumnNumber;
             token.kind = EOF;
         }
-
         else
             if (Character.isDigit(currentChar))
             {
@@ -272,21 +274,17 @@ class TokenMgr implements Constants
                     inString = true;
                     int backslashCounter = 0;
                     buffer.setLength(0);  // clear buffer
-
                     while (!done) {
                         do  // build token image in buffer
                         {
                             if (currentChar == '\\'){
                                 backslashCounter++;
                             }
-
                             buffer.append(currentChar);
                             getNextChar();
-
                             if (currentChar != '\\' && currentChar != '"'){
                                 backslashCounter = 0;
                             }
-
                             try {
                                 if (currentChar == '\\' && inputLine.charAt(currentColumnNumber+1) == '\n'){
                                     getNextChar();
@@ -294,12 +292,11 @@ class TokenMgr implements Constants
                             } catch (Exception e) {
                                 getNextChar();
                             }
-
                             if (currentChar == '\n' || currentChar == '\r') {
                                 break;
                             }
                         } while (currentChar != '"');
-                        if (currentChar =='"' && backslashCounter % 2 == 0)
+                        if (currentChar =='"' && backslashCounter % 2 == 0) //quote precede with even number of backslash
                         {
                             done = true;
                             backslashCounter = 0;
@@ -360,12 +357,11 @@ class TokenMgr implements Constants
 
                     // save currentChar as String in token.image
                     token.image = Character.toString(currentChar);
-
                     // save token end location
                     token.endLine = currentLineNumber;
                     token.endColumn = currentColumnNumber;
-
                     getNextChar();  // read beyond end
+
                 }
 
         return token;
@@ -391,15 +387,43 @@ class TokenMgr implements Constants
                 return;
             }
         }
-
         // check if single-line comment
         if (!inString &&
                 inputLine.charAt(currentColumnNumber) == '/' &&
                 inputLine.charAt(currentColumnNumber+1) == '/')
             currentChar = '\n';  // forces end of line
         else
-            currentChar =
-                    inputLine.charAt(currentColumnNumber++);
+            currentChar = inputLine.charAt(currentColumnNumber++);
+    }
+}
+
+class StringMgr
+{
+    private ArrayList<String> collection;
+    private int stringcount;
+
+    public StringMgr()
+    {
+        this.stringcount = 0;
+        this.collection = new ArrayList<>();
+    }
+    private String stringIdAvailable()
+    {
+        return "Str"+this.stringcount++;
+    }
+    public String enter(String str)
+    {
+        String str_id = stringIdAvailable();
+        collection.add(str);
+        return str_id;
+    }
+    public int getSize()
+    {
+        return collection.size();
+    }
+    public String getItem(int index)
+    {
+        return collection.get(index);
     }
 }
 
@@ -412,6 +436,8 @@ class Parser implements Constants
     private Token previousToken;
     private int identifiercount;
     private int registercount;
+    private StringMgr sm;
+    private ArrayList<String> StringIdentifiers;
     public Parser(SymTab st, TokenMgr tm, PrintWriter outFile)
     {
         this.st = st;
@@ -419,10 +445,12 @@ class Parser implements Constants
         this.outFile = outFile;
         this.identifiercount = 0;
         this.registercount = 0;
+        this.sm = new StringMgr();
+        this.StringIdentifiers = new ArrayList<>();
+
         currentToken = tm.getNextToken();
         previousToken = null;
     }
-
     /**
      * registerAvailable: return a free register
      * resetRegister: clear and reset the use of registers
@@ -438,6 +466,9 @@ class Parser implements Constants
         this.registercount = 0;
     }
     private String identifierAvailable(){ return "L"+this.identifiercount++;}
+
+
+
 
     private RuntimeException genEx(String errorMessage)
     {
@@ -498,7 +529,6 @@ class Parser implements Constants
                 throw genEx("Expecting statement or <EOF>");
         }
     }
-
     private void statement()
     {
         switch(currentToken.kind)
@@ -525,14 +555,27 @@ class Parser implements Constants
 
     private void assignmentStatement()
     {
-        Token t;
-        t = currentToken;
+        Token t = currentToken;
+        String left_op = t.image; //identifier on the left
+
         consume(ID);
         String reg = registerAvailable();
         outFile.println("lw\t"+reg+"\t"+t.image);
         st.enter(t.image);
         consume(ASSIGN);
         String temp = expr();
+        //Strx are not allowed to use
+        try{
+            if(StringIdentifiers.contains(left_op)) //Every time before we use, we first delete it
+            {
+                this.StringIdentifiers.remove(left_op);
+            }
+            if(temp.substring(0, 3).equals("Str") && !StringIdentifiers.contains(left_op))
+            {
+                this.StringIdentifiers.add(left_op);
+            }
+        }catch (Exception e){}
+
         String reg_temp = isNeedRegister(temp);
         outFile.println("move\t"+reg+"\t"+reg_temp);
         outFile.println("sw\t"+reg+"\t"+t.image);
@@ -549,13 +592,36 @@ class Parser implements Constants
         consume(LEFTPAREN);
         outFile.println("#println Statement");
         temp = expr();
+        try
+        {
+            if(temp.substring(0, 3).equals("Str"))
+            {
+                String reg_temp = isNeedRegister(temp);
+                outFile.println("li\t"+"$v0,\t"+"4");
+                outFile.println("move\t"+"$a0\t"+reg_temp);
+                outFile.println("syscall");
+            }
+            consume(RIGHTPAREN);
+            consume(SEMICOLON);
+            return;
+        }
+        catch (Exception e){}
+
         String reg_temp = isNeedRegister(temp);
-        outFile.println("li\t"+"$v0,\t"+"1");
+
+        if(this.StringIdentifiers.contains(temp))
+        {
+            outFile.println("li\t"+"$v0,\t"+"4");
+        }
+        else
+        {
+            outFile.println("li\t"+"$v0,\t"+"1");
+        }
+
         outFile.println("move\t"+"$a0\t"+reg_temp);
         outFile.println("syscall");
         consume(RIGHTPAREN);
         consume(SEMICOLON);
-
     }
 
     private void compoundStatement()
@@ -610,7 +676,6 @@ class Parser implements Constants
                 break;
             default:
         }
-
     }
 
     private String expr()
@@ -621,13 +686,22 @@ class Parser implements Constants
         expr_val = termlist_syn;
         return expr_val;
     }
-
     /**
      *Allocate register for data in memory or immediate data
      * */
     private String isNeedRegister(String term)
     {
         System.out.println(term);
+        try
+        {
+            if(term.substring(0,3).equals("Str"))
+            {
+                String reg = registerAvailable();
+                outFile.println("la"+"\t"+reg+"\t"+term);
+                return reg;
+            }
+        }
+        catch (Exception e){}
         if(term.charAt(0) == '$')
         {
             return term;
@@ -644,7 +718,6 @@ class Parser implements Constants
             return reg;
         }
     }
-
     private String termList(String inh)
     {
         String term_val,termlist_syn;
@@ -765,6 +838,12 @@ class Parser implements Constants
                 st.enter(t.image);
                 factor_val = t.image;
                 break;
+            case STRING:
+                t = currentToken;
+                consume(STRING);
+                factor_val = sm.enter(t.image); //Automatic another line
+                break;
+
             case LEFTPAREN:
                 consume(LEFTPAREN);
                 factor_val = expr();
@@ -775,6 +854,7 @@ class Parser implements Constants
         }
         return factor_val;
     }
+
     /**
      * Generate ".data" segment in MIPS instructions
      * Based on symbol table we have
@@ -782,11 +862,17 @@ class Parser implements Constants
     private void dataSegment()
     {
         outFile.println("\t"+".data");
-        for(int i=0;i<st.getSize();i++)
+        for(int i=0;i<sm.getSize();i++)
         {
-            String symbol = st.getSymbol(i);
-            outFile.println(symbol+":\t"+".word\t"+"0");
+            String str = sm.getItem(i);
+            outFile.println("Str"+i+":\t"+".asciiz\t"+str);
+        }
+        for (int i = 0;i<st.getSize();i++)
+        {
+            String temp = st.getSymbol(i);
+            outFile.println(temp+":\t"+".word\t"+"0");
         }
     }
+
 }
 

@@ -1,9 +1,5 @@
-a = 5;
-
-while(a)
-{
-    a = a-1;
-    println(a); //some comment
-}
-
-println(b);
+s = "xyz";
+b = 1;
+println(1);
+println("\n");
+println(s);
