@@ -1,5 +1,15 @@
-s = "xyz";
-b = 1;
-println(1);
-println("\n");
-println(s);
+if(10>=1){
+    if(1<=10)
+    {
+        if(2>0)
+        {
+            if(0<2)
+            {
+                if(3==3)
+                {
+                    println("Done\n");
+                }
+            }
+        }
+    }
+}
