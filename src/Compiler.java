@@ -4,6 +4,8 @@
  * Time: April.2019
  * */
 
+import com.sun.org.apache.bcel.internal.generic.RET;
+import com.sun.org.apache.regexp.internal.RE;
 import org.omg.PortableInterceptor.SYSTEM_EXCEPTION;
 
 import java.io.*;
@@ -32,7 +34,13 @@ import java.util.*;
  *          else(exp2){}
  *      while:
  *          while(exp1){}
- *      Note: the boole expression is not realized, the criteria is whether expression is zero or not
+ *  Boolean expression:
+ *      ==:equal
+ *      >=:greater or equal than
+ *      <=:less or equal than
+ *      <:less than
+ *      >:greater than
+ *      Compound Boolean expression is temporarily not realized
  *  Comment:
  *      use double backslash to add comment:
  *          example: //comments
@@ -111,15 +119,25 @@ interface Constants
     int LEFTBRACE = 13;
     int RIGHTBRACE = 14;
     int STRING = 15;
+    //switch expression
     int WHILE = 16;
     int IF = 17;
     int ELSE = 18;
-
+    //boolen expression
     int EQUAL = 19;
     int GREATER_THAN = 20;
     int SMALLER_THAN = 21;
     int GREATER_EQUAL_THAN = 22;
     int SMALLER_EQUAL_THAN = 23;
+    int INT = 24;
+    int RETURN = 25;
+    int DEF = 26;
+    int VOID = 27;
+    int CAL = 28;
+    int AND = 29;
+    int OR = 30;
+    int COMMA = 31;
+
 
     // tokenImage provides string for each token kind
     String[] tokenImage =
@@ -148,6 +166,14 @@ interface Constants
                     "\"<\"",
                     "\">=\"",
                     "\"<=\"",
+                    "int",
+                    "return",
+                    "def",
+                    "void",
+                    "cal",
+                    "and",
+                    "or",
+                    ","
             };
 }
 
@@ -297,8 +323,26 @@ class TokenMgr implements Constants
                     if (token.image.equals("if"))
                         token.kind = IF;
                     else
-                    if (token.image.equals("else"))
-                        token.kind = ELSE;
+                    if (token.image.equals("int"))
+                        token.kind = INT;
+                    else
+                    if (token.image.equals("return"))
+                        token.kind = RETURN;
+                    else
+                    if (token.image.equals("def"))
+                        token.kind = DEF;
+                    else
+                    if (token.image.equals("void"))
+                        token.kind = VOID;
+                    else
+                    if (token.image.equals("cal"))
+                        token.kind = CAL;
+                    else
+                    if (token.image.equals("and"))
+                        token.kind = AND;
+                    else
+                    if (token.image.equals("or"))
+                        token.kind = OR;
                     else  // not a keyword so kind is ID
                         token.kind = ID;
                 }
@@ -421,6 +465,10 @@ class TokenMgr implements Constants
                             break;
                         case '}':
                             token.kind = RIGHTBRACE;
+                            token.image = Character.toString(currentChar);
+                            break;
+                        case ',':
+                            token.kind = COMMA;
                             token.image = Character.toString(currentChar);
                             break;
                         default:
@@ -568,9 +616,6 @@ class Parser implements Constants
         }
         return temp;
     }
-
-
-
     private RuntimeException genEx(String errorMessage)
     {
         return new RuntimeException("Encountered \"" +
@@ -579,7 +624,6 @@ class Parser implements Constants
                 currentToken.beginColumn + "." +
                 errorMessage);
     }
-
     private void advance()
     {
         previousToken = currentToken;
@@ -596,15 +640,113 @@ class Parser implements Constants
             throw genEx("Expecting " + tokenImage[expected]);
     }
 
+
     public void parse()
     {
         program();
     }
 
+    private void programUnitList()
+    {
+        switch (currentToken.kind)
+        {
+            case DEF:
+                programUnit();
+                programUnitList();
+                break;
+            default:
+                break;
+        }
+    }
+    private void programUnit()
+    {
+        switch (currentToken.kind)
+        {
+            case DEF:
+                functionDefinition();
+                break;
+            default:
+                break;
+        }
+
+    }
+    private void functionDefinition()
+    {
+            consume(DEF);
+            consume(VOID);
+            consume(ID);
+            consume(LEFTPAREN);
+            parameterList();
+            consume(RIGHTPAREN);
+            consume(LEFTBRACE);
+            localDeclarations();
+            statementList();
+            returnStatement();
+            consume(RIGHTBRACE);
+    }
+
+    private void parameterList()
+    {
+        switch (currentToken.kind)
+        {
+            case INT:
+                parameter();
+                parameterTail();
+                break;
+            default:
+                break;
+        }
+
+    }
+    private void localDeclarations()
+    {
+        switch (currentToken.kind)
+        {
+            case INT:
+                consume(INT);
+                consume(ID);
+                localTail();
+                consume(SEMICOLON);
+                break;
+            default:
+                break;
+        }
+
+    }
+    private void localTail()
+    {
+        switch (currentToken.kind)
+        {
+            case COMMA:
+                consume(COMMA);
+                consume(ID);
+                localTail();
+            default:
+                break;
+        }
+    }
+    private void parameter()
+    {
+        consume(INT);
+        consume(ID);
+    }
+    private void parameterTail()
+    {
+        switch (currentToken.kind)
+        {
+            case COMMA:
+                consume(COMMA);
+                parameter();
+                parameterTail();
+                break;
+            default:
+                break;
+        }
+    }
     private void program()
     {
         outFile.println("\t.text");
-        statementList();
+        programUnitList();
         if (currentToken.kind != EOF)
             throw genEx("Expecting <EOF>");
         dataSegment();
@@ -618,6 +760,9 @@ class Parser implements Constants
             case WHILE:
             case PRINTLN:
             case IF:
+            case CAL:
+            case RETURN:
+            case LEFTBRACE:
                 statement();
                 statementList();
                 break;
@@ -647,11 +792,65 @@ class Parser implements Constants
             case IF:
                 ifStatement();
                 break;
+            case RETURN:
+                returnStatement();
+                break;
+            case CAL:
+                functionCall();
+                break;
             default:
                 throw genEx("Expecting statement");
         }
     }
 
+    private void returnStatement()
+    {
+        switch (currentToken.kind)
+        {
+            case RETURN:
+                consume(RETURN);
+                expr();
+                consume(SEMICOLON);
+                break;
+            default:
+                break;
+        }
+    }
+    private void functionCall()
+    {
+        consume(CAL);
+        consume(ID);
+        consume(LEFTPAREN);
+        argumentList();
+        consume(RIGHTPAREN);
+        consume(SEMICOLON);
+    }
+    private void argumentList()
+    {
+        switch (currentToken.kind)
+        {
+            case RIGHTPAREN:
+                break;
+            default:
+                expr();
+                argtail();
+                break;
+        }
+    }
+    private void argtail()
+    {
+        switch (currentToken.kind)
+        {
+            case COMMA:
+                consume(COMMA);
+                expr();
+                argtail();
+                break;
+            default:
+                break;
+        }
+
+    }
     private void assignmentStatement()
     {
 
@@ -867,8 +1066,8 @@ class Parser implements Constants
 
                 resetRegister();
                 System.out.println("EQUAL, Diter: "+inh+" "+termlist_syn);
-
                 break;
+
             case GREATER_EQUAL_THAN:
                 consume(GREATER_EQUAL_THAN);
                 termlist_syn = expr();
@@ -912,7 +1111,7 @@ class Parser implements Constants
 
                 System.out.println("SMALLER_EQUAL_THAN, compare: "+inh+" "+termlist_syn);
                 break;
-                
+
             case GREATER_THAN:
                 consume(GREATER_THAN);
                 termlist_syn = expr();
@@ -944,6 +1143,11 @@ class Parser implements Constants
                 resetRegister();
                 System.out.println("SMALLER_THAN, compare: "+inh+" "+termlist_syn);
                 break;
+            case AND:
+            case OR:
+                booleanExpression();
+                termlist_syn = inh;//!!!!!!!!!!!!!!!!wrong
+                break;
             case RIGHTPAREN:
             case SEMICOLON:
                 termlist_syn = inh;
@@ -952,6 +1156,24 @@ class Parser implements Constants
                 throw genEx("Expecting \"+\", \")\", or \";\"");
         }
         return termlist_syn;
+    }
+    private void booleanExpression()
+    {
+        switch (currentToken.kind)
+        {
+            case AND:
+                consume(AND);
+                expr();
+                booleanExpression();
+                break;
+            case OR:
+                consume(OR);
+                expr();
+                booleanExpression();
+                break;
+            default:
+                break;
+        }
     }
 
     private String term()
@@ -1003,6 +1225,10 @@ class Parser implements Constants
             case SMALLER_EQUAL_THAN:
             case GREATER_THAN:
             case SMALLER_THAN:
+                factorlist_syn = inh;
+                break;
+            case AND:
+            case OR: //~!!!!!!!!!!!!!!!!!!!!!!!!!wrong
                 factorlist_syn = inh;
                 break;
             default:

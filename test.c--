@@ -1,15 +1,9 @@
-if(10>=1){
-    if(1<=10)
+def void f1(int a,int s)
+{
+    int b,c;
+    if(b>=c and b == c)
     {
-        if(2>0)
-        {
-            if(0<2)
-            {
-                if(3==3)
-                {
-                    println("Done\n");
-                }
-            }
-        }
+        cal f1();
     }
+    return b;
 }
