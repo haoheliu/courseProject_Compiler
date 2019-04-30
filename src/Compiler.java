@@ -76,7 +76,6 @@ class Compiler
         SymTab st = new SymTab();
         //词法分析器
         TokenMgr tm =  new TokenMgr(inFile);
-        //代码生成器
         //语法分析器
         Parser parser = new Parser(st, tm, outFile);
 
@@ -123,7 +122,7 @@ interface Constants
     int WHILE = 16;
     int IF = 17;
     int ELSE = 18;
-    //boolen expression
+    //boolean expression
     int EQUAL = 19;
     int GREATER_THAN = 20;
     int SMALLER_THAN = 21;
@@ -219,21 +218,84 @@ class Token implements java.io.Serializable {
 
 /**用于存储词法分析中遇到的标识符
  * */
+
+class FuncSymTab
+{
+    public String func_name;
+    private ArrayList<String> args;
+    private ArrayList<String> vars;
+    public FuncSymTab(String func_name)
+    {
+        this.args = new ArrayList<>();
+        this.vars = new ArrayList<>();
+        this.func_name = func_name;
+    }
+    //on parsing: enter the args
+    public void argEnter(String arg)
+    {
+        int index = args.indexOf(arg);
+        if(index<0)args.add(arg);
+        else genDf(arg);
+    }
+    public void varEnter(String var)
+    {
+        int index = vars.indexOf(var);
+        if(index<0)args.add(var);
+        else genDf(var);
+    }
+    //locate the memory location of this arg
+    public int argLocate(String arg)
+    {
+        int index = args.indexOf(arg);
+        if(index<0)genNf(arg);
+        else return index;
+        //error
+        return -1;
+    }
+
+    public int varLocate(String arg)
+    {
+        int index = vars.indexOf(arg);
+        if(index<0)genNf(arg);
+        else return index;
+        //error
+        return -1;
+    }
+    //Exceptions
+    private void genDf(String item)
+    {
+        throw new RuntimeException("\nError: "+item+" is already defined");
+    }
+    private void genNf(String item)
+    {
+        throw new RuntimeException("\nError: "+item+" not defined");
+    }
+}
+
+
 class SymTab
 {
     private ArrayList<String> symbol;
+    private Map<String,FuncSymTab> func_tabs;
     //ArrayList: add & indexOf
     public SymTab()
     {
         symbol = new ArrayList<>();
+        func_tabs = new HashMap<>();
+
     }
-    //查询是否在符号表中，如果不在则加入
     public void enter(String s)
     {
         int index = symbol.indexOf(s);
         if (index < 0)
             symbol.add(s);
     }
+    public void enterFunc(String func_name,FuncSymTab func)
+    {
+        if (!func_tabs.containsKey(func_name))
+            func_tabs.put(func_name, func);
+    }
+
     //指定index的项目
     public String getSymbol(int index)
     {
@@ -245,6 +307,8 @@ class SymTab
         return symbol.size();
     }
 }
+
+
 
 class TokenMgr implements Constants
 {
@@ -591,7 +655,6 @@ class Parser implements Constants
      * resetRegister: clear and reset the use of registers
      * identifierAvailable: Generate a label for jump instruction
      * */
-
     private String registerAvailable()
     {
         String temp = "$t"+this.registercount++;
@@ -658,6 +721,7 @@ class Parser implements Constants
                 break;
         }
     }
+
     private void programUnit()
     {
         switch (currentToken.kind)
@@ -668,13 +732,32 @@ class Parser implements Constants
             default:
                 break;
         }
+    }
 
+    private void emitInstruction(String func,String op1)
+    {
+        outFile.println(func+"\t"+op1);
+    }
+    private void emitInstruction(String func,String op1,String op2)
+    {
+        outFile.println(func+"\t"+op1+",\t"+op2);
+    }
+    private void emitInstruction(String func,String op1,String op2,String op3)
+    {
+        outFile.println(func+"\t"+op1+",\t"+op2+",\t"+op3);
     }
     private void functionDefinition()
     {
             consume(DEF);
             consume(VOID);
+            //Entrance of a function
+            outFile.println(currentToken.image+":");
             consume(ID);
+        //Save register
+        {
+            //update fp pointer
+            emitInstruction("move","$fp","$sp");
+        }
             consume(LEFTPAREN);
             parameterList();
             consume(RIGHTPAREN);
@@ -696,8 +779,8 @@ class Parser implements Constants
             default:
                 break;
         }
-
     }
+
     private void localDeclarations()
     {
         switch (currentToken.kind)
@@ -730,6 +813,7 @@ class Parser implements Constants
         consume(INT);
         consume(ID);
     }
+
     private void parameterTail()
     {
         switch (currentToken.kind)
@@ -849,8 +933,8 @@ class Parser implements Constants
             default:
                 break;
         }
-
     }
+
     private void assignmentStatement()
     {
 
@@ -964,6 +1048,7 @@ class Parser implements Constants
         elsePart(judge_else);
         outFile.println(judge_exit+":");
     }
+
     //-----------------------------------------
     private void elsePart(String judge_else) {
         outFile.println(judge_else+":");
@@ -975,6 +1060,7 @@ class Parser implements Constants
             default:
         }
     }
+
     private String expr()
     {
         String term_val,expr_val,termlist_syn;
@@ -983,6 +1069,7 @@ class Parser implements Constants
         expr_val = termlist_syn;
         return expr_val;
     }
+
     /**
      *Allocate register for data in memory or immediate data
      * */
@@ -1016,6 +1103,7 @@ class Parser implements Constants
             return reg;
         }
     }
+
     private String termList(String inh)
     {
         String term_val,termlist_syn;
@@ -1037,6 +1125,7 @@ class Parser implements Constants
 
                 termlist_syn = termList(reg_result);
                 break;
+
             case MINUS:
                 consume(MINUS);
                 term_val = term();
@@ -1049,6 +1138,7 @@ class Parser implements Constants
 
                 termlist_syn = termList(reg_result);
                 break;
+
             case EQUAL:
                 consume(EQUAL);
                 termlist_syn = expr();
@@ -1087,8 +1177,10 @@ class Parser implements Constants
 
                 termlist_syn = reg_result;
                 resetRegister();
+
                 System.out.println("GREATER_EQUAL_THAN, compare: "+reg_inh+" "+reg_term_val);
                 break;
+
             case SMALLER_EQUAL_THAN:
                 consume(SMALLER_EQUAL_THAN);
                 termlist_syn = expr();
@@ -1125,7 +1217,6 @@ class Parser implements Constants
 
                 termlist_syn = reg_result;
                 resetRegister();
-
                 System.out.println("GREATER_THAN, compare: "+inh+" "+termlist_syn);
                 break;
 
@@ -1157,6 +1248,7 @@ class Parser implements Constants
         }
         return termlist_syn;
     }
+
     private void booleanExpression()
     {
         switch (currentToken.kind)
@@ -1300,6 +1392,5 @@ class Parser implements Constants
             outFile.println(temp+":\t"+".word\t"+"0");
         }
     }
-
 }
 

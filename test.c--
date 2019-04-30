@@ -1,9 +1,4 @@
-def void f1(int a,int s)
+def void main()
 {
-    int b,c;
-    if(b>=c and b == c)
-    {
-        cal f1();
-    }
-    return b;
+    a = a+1;
 }
