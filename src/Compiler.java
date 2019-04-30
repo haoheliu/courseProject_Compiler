@@ -239,27 +239,28 @@ class FuncSymTab
     }
     public void varEnter(String var)
     {
+        if(args.indexOf(var)>=0)genDf(var);
         int index = vars.indexOf(var);
-        if(index<0)args.add(var);
+        if(index<0) vars.add(var);
         else genDf(var);
+    }
+    public int varLength()
+    {
+        return this.vars.size();
+    }
+    public int argLength()
+    {
+        return this.args.size();
     }
     //locate the memory location of this arg
     public int argLocate(String arg)
     {
-        int index = args.indexOf(arg);
-        if(index<0)genNf(arg);
-        else return index;
-        //error
-        return -1;
+        return args.indexOf(arg);
     }
 
     public int varLocate(String arg)
     {
-        int index = vars.indexOf(arg);
-        if(index<0)genNf(arg);
-        else return index;
-        //error
-        return -1;
+        return vars.indexOf(arg);
     }
     //Exceptions
     private void genDf(String item)
@@ -637,6 +638,9 @@ class Parser implements Constants
     private int registerS_count;
     private StringMgr sm;
     private ArrayList<String> StringIdentifiers;
+    private FuncSymTab ft;
+    //the function we are working in
+    private String currentfunction;
     public Parser(SymTab st, TokenMgr tm, PrintWriter outFile)
     {
         this.st = st;
@@ -646,6 +650,10 @@ class Parser implements Constants
         this.registercount = 0;
         this.sm = new StringMgr();
         this.StringIdentifiers = new ArrayList<>();
+
+        this.currentfunction = "main";
+        //This instance is shared between different functions, after parsing one, it will be reset
+        this.ft = new FuncSymTab("main");
 
         currentToken = tm.getNextToken();
         previousToken = null;
@@ -752,14 +760,17 @@ class Parser implements Constants
             consume(VOID);
             //Entrance of a function
             outFile.println(currentToken.image+":");
+            //Update the function parsing in
+            currentfunction = currentToken.image;
+            ft.func_name = currentfunction;
             consume(ID);
         //Save register
         {
             //update fp pointer
-            emitInstruction("move","$fp","$sp");
+            //emitInstruction("move","$fp","$sp");
         }
             consume(LEFTPAREN);
-            parameterList();
+            parameterList(); //empty
             consume(RIGHTPAREN);
             consume(LEFTBRACE);
             localDeclarations();
@@ -775,6 +786,10 @@ class Parser implements Constants
             case INT:
                 parameter();
                 parameterTail();
+                emitInstruction("addi", "$sp","$sp",(-4*(ft.argLength()+2))+"");
+                emitInstruction("sw", "$ra","4($sp)");
+                emitInstruction("sw", "$fp","0($sp)");
+                emitInstruction("move", "$fp","$sp");
                 break;
             default:
                 break;
@@ -787,8 +802,12 @@ class Parser implements Constants
         {
             case INT:
                 consume(INT);
+                ft.varEnter(currentToken.image);
                 consume(ID);
                 localTail();
+                //Expand space according to the declaration
+                emitInstruction("addi", "$sp","$sp",""+(-4)*ft.varLength());
+                System.out.println("length"+ft.varLength());
                 consume(SEMICOLON);
                 break;
             default:
@@ -802,6 +821,7 @@ class Parser implements Constants
         {
             case COMMA:
                 consume(COMMA);
+                ft.varEnter(currentToken.image);
                 consume(ID);
                 localTail();
             default:
@@ -811,6 +831,8 @@ class Parser implements Constants
     private void parameter()
     {
         consume(INT);
+        //enter the args into the symtable of this function
+        ft.argEnter(currentToken.image);
         consume(ID);
     }
 
@@ -830,6 +852,8 @@ class Parser implements Constants
     private void program()
     {
         outFile.println("\t.text");
+        emitInstruction("move", "$fp","$sp");
+        emitInstruction("jal", "main");
         programUnitList();
         if (currentToken.kind != EOF)
             throw genEx("Expecting <EOF>");
@@ -935,6 +959,43 @@ class Parser implements Constants
         }
     }
 
+    private void loadVariable(String reg,String var)
+    {
+        //Search this symbol in symtable
+        int index = ft.argLocate(var);
+        //Defined in args list
+        if(index >= 0)
+        {
+            /**@marked
+             * The push sequence and index sequence are inverse
+             * So we need some tricks
+             * */
+            emitInstruction("lw",reg, (4*(ft.argLength()+1)-index*4)+"($fp)");
+        }
+        else if(index < 0)
+        {
+            index = ft.varLocate(var);
+            emitInstruction("lw",reg, (4*(ft.varLength()-1)-index*4)+"($sp)");
+        }
+        if(index < 0) genEx(var+" not defined");
+    }
+
+    private void saveVariable(String reg,String var)
+    {
+        int index = ft.argLocate(var);
+        //Defined in args list
+        if(index >= 0)
+        {
+            emitInstruction("sw",reg, (4*(ft.argLength()+1)-index*4)+"($fp)");
+        }
+        else if(index < 0)
+        {
+            index = ft.varLocate(var);
+            emitInstruction("sw",reg, (4*(ft.varLength()-1)-index*4)+"($sp)");
+        }
+        if(index < 0) genEx(var+" not defined");
+    }
+
     private void assignmentStatement()
     {
 
@@ -942,7 +1003,9 @@ class Parser implements Constants
         String left_op = t.image; //identifier on the left
         consume(ID);
         String reg = registerAvailable();
-        outFile.println("lw\t"+reg+"\t"+t.image);
+
+        loadVariable(reg,left_op);
+
         st.enter(t.image);
         consume(ASSIGN);
         String temp = expr();
@@ -959,9 +1022,10 @@ class Parser implements Constants
         }catch (Exception e){}
 
         String reg_temp = isNeedRegister(temp);
-        outFile.println("move\t"+reg+"\t"+reg_temp);
-        outFile.println("sw\t"+reg+"\t"+t.image);
-//        outFile.println("mov"+"\t"+temp+",\t"+t.image);
+        emitInstruction("move", reg,reg_temp);
+
+        saveVariable(reg,t.image);
+
         resetRegister();
         System.out.println(temp);
         consume(SEMICOLON);
@@ -979,8 +1043,8 @@ class Parser implements Constants
             if(temp.substring(0, 3).equals("Str"))
             {
                 String reg_temp = isNeedRegister(temp);
-                outFile.println("li\t"+"$v0,\t"+"4");
-                outFile.println("move\t"+"$a0\t"+reg_temp);
+                emitInstruction("li","$v0","4");
+                emitInstruction("move", "$a0",reg_temp);
                 outFile.println("syscall");
             }
             consume(RIGHTPAREN);
@@ -993,14 +1057,14 @@ class Parser implements Constants
 
         if(this.StringIdentifiers.contains(temp))
         {
-            outFile.println("li\t"+"$v0,\t"+"4");
+            emitInstruction("li", "$v0","4");
         }
         else
         {
-            outFile.println("li\t"+"$v0,\t"+"1");
+            emitInstruction("li", "$v0","1");
         }
 
-        outFile.println("move\t"+"$a0\t"+reg_temp);
+        emitInstruction("move","$a0",reg_temp);
         outFile.println("syscall");
         consume(RIGHTPAREN);
         consume(SEMICOLON);
@@ -1082,7 +1146,7 @@ class Parser implements Constants
             if(term.substring(0,3).equals("Str"))
             {
                 String reg = registerAvailable();
-                outFile.println("la"+"\t"+reg+"\t"+term);
+                emitInstruction("la", reg,term);
                 return reg;
             }
         }
@@ -1093,13 +1157,13 @@ class Parser implements Constants
         }else if(Character.isDigit(term.charAt(0)))
         {
             String reg = registerAvailable();
-            outFile.println("li"+"\t"+reg+"\t"+term);
+            emitInstruction("li", reg,term);
             return reg;
         }
         else
         {
             String reg = registerAvailable();
-            outFile.println("lw"+"\t"+reg+"\t"+term);
+            loadVariable(reg, term);
             return reg;
         }
     }
@@ -1385,11 +1449,6 @@ class Parser implements Constants
         {
             String str = sm.getItem(i);
             outFile.println("Str"+i+":\t"+".asciiz\t"+str);
-        }
-        for (int i = 0;i<st.getSize();i++)
-        {
-            String temp = st.getSymbol(i);
-            outFile.println(temp+":\t"+".word\t"+"0");
         }
     }
 }

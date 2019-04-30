@@ -1,4 +1,6 @@
-def void main()
+def void main(int a)
 {
-    a = a+1;
+    int d;
+    d = "123";
+    println(d);
 }
