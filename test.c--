@@ -1,6 +1,16 @@
-def void main(int a)
+def void factor( int N ){
+	if( N > 1 ){
+		return N * cal factor( N - 1 );
+	}
+	else{
+		return 1;
+	}
+}
+
+def void main()
 {
-    int d;
-    d = "123";
-    println(d);
+    int n;
+    n = cal factor(5);
+    println(n);
+    return 0;
 }
