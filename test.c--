@@ -9,8 +9,31 @@ def void factor( int N ){
 
 def void main()
 {
-    int n;
-    n = cal factor(5);
-    println(n);
+    int n,times;
+    times = 3;
+    //n = cal factor(times);
+    //println(n);
+    //return 0;
+
+    switch(times)
+    {
+        case 1:
+            println("1");
+        case 2:
+            println("2");
+        default:
+            println("default");
+    }
+
+    while(times >= 0)
+    {
+        n = cal factor(times);
+        println("\nResult of factor:");
+        println(times);
+        println("  -  ");
+        println(n);
+
+        times = times-1;
+    }
     return 0;
 }

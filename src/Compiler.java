@@ -137,6 +137,10 @@ interface Constants
     int OR = 30;
     int COMMA = 31;
     int END = 32;
+    int SWITCH = 33;
+    int CASE = 34;
+    int DEFAULT = 35;
+    int COLON = 36;
 
 
     // tokenImage provides string for each token kind
@@ -174,7 +178,11 @@ interface Constants
                     "and",
                     "or",
                     ",",
-                    "~"//FORCE END
+                    "~",//FORCE END
+                    "switch",
+                    "case",
+                    "default",
+                    ":"
             };
 }
 
@@ -252,6 +260,7 @@ class FuncSymTab
         }
         else genDf(arg);
     }
+
     public void varEnter(String var)
     {
         if(args.indexOf(var)>=0)genDf(var);
@@ -263,6 +272,7 @@ class FuncSymTab
         }
         else genDf(var);
     }
+
     public int varLength()
     {
         return this.vars.size();
@@ -439,6 +449,15 @@ class TokenMgr implements Constants
                     else
                     if (token.image.equals("or"))
                         token.kind = OR;
+                    else
+                    if (token.image.equals("switch"))
+                        token.kind = SWITCH;
+                    else
+                    if (token.image.equals("case"))
+                        token.kind = CASE;
+                    else
+                    if (token.image.equals("default"))
+                        token.kind = DEFAULT;
                     else  // not a keyword so kind is ID
                         token.kind = ID;
                 }
@@ -570,6 +589,10 @@ class TokenMgr implements Constants
                         case '~':
                             token.kind = END;
                             token.image = Character.toString(currentChar);
+                        case ':':
+                            token.kind = COLON;
+                            token.image = Character.toString(currentChar);
+                            break;
                         default:
                             token.kind = ERROR;
                             token.image = Character.toString(currentChar);
@@ -660,6 +683,63 @@ class StringMgr
     }
 }
 
+class RegMgr
+{
+    public int registerT_count;
+    public int registerS_count;
+    public int registerA_count;
+
+
+    public RegMgr()
+    {
+        this.registerT_count = 0;
+        this.registerS_count = 0;
+        this.registerA_count = 0;
+    }
+    public String registerAvailable()
+    {
+        String temp = "$t"+this.registerT_count++;
+        //Totally we have $t0~$t9, so if we don't have enough register, we will throw an exception
+        if(this.registerT_count == 11)
+        {
+            throw new RuntimeException("Temporary registor overflow");
+        }
+        return temp;
+    }
+
+    public String registerS_Available(){
+        String temp = "$s"+this.registerS_count++;
+        if(this.registerS_count == 9)
+        {
+            throw new RuntimeException("s registor overflow");
+        }
+        return temp;
+    }
+
+    public String registerA_Available(){
+        String temp = "$a"+this.registerA_count++;
+        if(this.registerA_count == 5)
+        {
+            throw new RuntimeException("Registor a overflow");
+        }
+        return temp;
+    }
+
+    /**
+     * registerAvailable: return a free register
+     * resetRegister: clear and reset the use of registers
+     * identifierAvailable: Generate a label for jump instruction
+     * */
+
+    public void resetRegister()
+    {
+        this.registerS_count = 0;
+        this.registerT_count = 0;
+        this.registerA_count = 0;
+    }
+
+}
+
 class Parser implements Constants
 {
     private SymTab st;
@@ -668,9 +748,7 @@ class Parser implements Constants
     private Token currentToken;
     private Token previousToken;
     private int identifiercount;
-    private int registercount;
-    private int registerS_count;
-    private int registerA_count;
+    private RegMgr rm;
     private StringMgr sm;
     private ArrayList<String> StringIdentifiers;
     private FuncSymTab ft;
@@ -682,12 +760,9 @@ class Parser implements Constants
         this.tm = tm;
         this.outFile = outFile;
         this.identifiercount = 0;
-
-        this.registercount = 0;
-        this.registerS_count = 0;
-        this.registerA_count = 0;
-
+        this.rm = new RegMgr();
         this.sm = new StringMgr();
+
         this.StringIdentifiers = new ArrayList<>();
 
         this.currentfunction = "main";
@@ -697,7 +772,6 @@ class Parser implements Constants
         currentToken = tm.getNextToken();
         previousToken = null;
     }
-
 
     private void emitInstruction(String func,String op1)
     {
@@ -712,47 +786,7 @@ class Parser implements Constants
         outFile.println(func+"\t"+op1+",\t"+op2+",\t"+op3);
     }
 
-    private String registerAvailable()
-    {
-        String temp = "$t"+this.registercount++;
-        //Totally we have $t0~$t9, so if we don't have enough register, we will throw an exception
-        if(this.registercount == 11)
-        {
-            throw genEx("Temporary registor overflow");
-        }
-        return temp;
-    }
 
-    private String registerS_Available(){
-        String temp = "$s"+this.registerS_count++;
-        if(this.registerS_count == 9)
-        {
-            throw genEx("s registor overflow");
-        }
-        return temp;
-    }
-
-    private String registerA_Available(){
-        String temp = "$a"+this.registerA_count++;
-        if(this.registerA_count == 5)
-        {
-            throw genEx("Registor a overflow");
-        }
-        return temp;
-    }
-
-    /**
-     * registerAvailable: return a free register
-     * resetRegister: clear and reset the use of registers
-     * identifierAvailable: Generate a label for jump instruction
-     * */
-
-    private void resetRegister()
-    {
-        this.registerS_count = 0;
-        this.registercount = 0;
-        this.registerA_count = 0;
-    }
     private String identifierAvailable(){ return "L"+this.identifiercount++;}
 
     private RuntimeException genEx(String errorMessage)
@@ -771,6 +805,7 @@ class Parser implements Constants
         else
             currentToken = currentToken.next = tm.getNextToken();
     }
+
     private void consume(int expected)
     {
         if (currentToken.kind == expected)
@@ -815,7 +850,7 @@ class Parser implements Constants
             consume(DEF);
             consume(VOID);
             //Entrance of a function
-            outFile.println(currentToken.image+":");
+            outFile.println("\n"+currentToken.image+":");
             //Update the function parsing in
             currentfunction = currentToken.image;
             ft.func_name = currentfunction;
@@ -895,6 +930,7 @@ class Parser implements Constants
                 break;
         }
     }
+
     private void parameter()
     {
         consume(INT);
@@ -916,6 +952,7 @@ class Parser implements Constants
                 break;
         }
     }
+
     private void program()
     {
         outFile.println("\t.text");
@@ -940,16 +977,20 @@ class Parser implements Constants
             case CAL:
             case RETURN:
             case LEFTBRACE:
+            case SWITCH:
                 statement();
                 statementList();
                 break;
             case EOF:
             case RIGHTBRACE:
+            case CASE:
+            case DEFAULT:
                 break;
             default:
                 throw genEx("Expecting statement or <EOF>");
         }
     }
+
     private void statement()
     {
         switch(currentToken.kind)
@@ -975,8 +1016,63 @@ class Parser implements Constants
             case CAL:
                 functionCall();
                 break;
+            case SWITCH:
+                switchStatement();
+                break;
             default:
                 throw genEx("Expecting statement");
+        }
+    }
+    private void switchStatement()
+    {
+        consume(SWITCH);
+        consume(LEFTPAREN);
+        expr();
+        consume(RIGHTPAREN);
+        consume(LEFTBRACE);
+        caseStatementList();
+        defaultStatement();
+        consume(RIGHTBRACE);
+        System.out.println("!!!!!!!!!!!!");
+    }
+
+    private void caseStatementList()
+    {
+        switch(currentToken.kind)
+        {
+            case CASE:
+                caseStatement();
+                caseStatementList();
+            default:
+                break;
+        }
+    }
+
+    private void caseStatement()
+    {
+        switch (currentToken.kind)
+        {
+            case CASE:
+                consume(CASE);
+                String image = currentToken.image;
+                consume(UNSIGNED);
+                consume(COLON);
+                statementList();
+            default:
+                break;
+        }
+    }
+
+    private void defaultStatement()
+    {
+        switch(currentToken.kind)
+        {
+            case DEFAULT:
+                consume(DEFAULT);
+                consume(COLON);
+                statementList();
+            default:
+                break;
         }
     }
 
@@ -1001,7 +1097,6 @@ class Parser implements Constants
 
     private void functionCall()
     {
-
         consume(CAL);
         String func_name = currentToken.image;
         consume(ID);
@@ -1013,12 +1108,12 @@ class Parser implements Constants
         //consume(SEMICOLON);
 
         //argumentList will also consume registers
-        int reg_t = this.registercount;
-        int reg_s = this.registerS_count;
+        int reg_t = rm.registerT_count;
+        int reg_s = rm.registerS_count;
         int save_reg = (-4)*(reg_s+reg_t);
 
-        System.out.println("reg"+this.registercount);
-        System.out.println("reg"+this.registerS_count);
+        System.out.println("reg"+rm.registerT_count);
+        System.out.println("reg"+rm.registerS_count);
 
         emitInstruction("addi", "$sp","$sp",""+save_reg);
 
@@ -1034,7 +1129,7 @@ class Parser implements Constants
             pointer-=4;
         }
 
-        resetRegister();
+        rm.resetRegister();
 
         emitInstruction("jal",func_name);
 
@@ -1063,7 +1158,7 @@ class Parser implements Constants
             case RIGHTPAREN:
                 break;
             default:
-                String reg = registerA_Available();
+                String reg = rm.registerA_Available();
                 String reg_result = isNeedRegister(expr());
                 emitInstruction("move", reg,reg_result);
                 argtail();
@@ -1077,7 +1172,7 @@ class Parser implements Constants
         {
             case COMMA:
                 consume(COMMA);
-                String reg = registerA_Available();
+                String reg = rm.registerA_Available();
                 String reg_result = isNeedRegister(expr());
                 emitInstruction("move", reg,reg_result);
                 argtail();
@@ -1100,6 +1195,7 @@ class Parser implements Constants
              * */
             emitInstruction("lw",reg, (4*(ft.argLength()+1)-index*4)+"($fp)");
         }
+
         else if(index < 0)
         {
             index = ft.varLocate(var);
@@ -1131,7 +1227,7 @@ class Parser implements Constants
         Token t = currentToken;
         String left_op = t.image; //identifier on the left
         consume(ID);
-        String reg = registerAvailable();
+        String reg = rm.registerAvailable();
 
         loadVariable(reg,left_op);
 
@@ -1155,7 +1251,7 @@ class Parser implements Constants
 
         saveVariable(reg,t.image);
 
-        resetRegister();
+        rm.resetRegister();
         System.out.println(temp);
         consume(SEMICOLON);
     }
@@ -1276,7 +1372,7 @@ class Parser implements Constants
             //If it's string immediate, use la
             if(term.substring(0,3).equals("Str"))
             {
-                String reg = registerAvailable();
+                String reg = rm.registerAvailable();
                 emitInstruction("la", reg,term);
                 return reg;
             }
@@ -1287,13 +1383,13 @@ class Parser implements Constants
             return term;
         }else if(Character.isDigit(term.charAt(0)))
         {
-            String reg = registerAvailable();
+            String reg = rm.registerAvailable();
             emitInstruction("li", reg,term);
             return reg;
         }
         else
         {
-            String reg = registerAvailable();
+            String reg = rm.registerAvailable();
             loadVariable(reg, term);
             return reg;
         }
@@ -1314,9 +1410,9 @@ class Parser implements Constants
 
                 reg_inh = isNeedRegister(inh);
                 reg_term_val = isNeedRegister(term_val);
-                reg_result = registerAvailable();
+                reg_result = rm.registerAvailable();
 
-                outFile.println("add"+"\t"+reg_result +",\t" + reg_term_val +",\t"+reg_inh);
+                emitInstruction("add", reg_result,reg_term_val,reg_inh);
 
                 termlist_syn = termList(reg_result);
                 break;
@@ -1327,9 +1423,10 @@ class Parser implements Constants
 
                 reg_inh = isNeedRegister(inh);
                 reg_term_val = isNeedRegister(term_val);
-                reg_result = registerAvailable();
+                reg_result = rm.registerAvailable();
 
-                outFile.println("sub"+"\t"+reg_result +",\t" + reg_inh +",\t"+reg_term_val);
+
+                emitInstruction("sub", reg_result,reg_term_val,reg_inh);
 
                 termlist_syn = termList(reg_result);
                 break;
@@ -1340,14 +1437,14 @@ class Parser implements Constants
 
                 reg_inh = isNeedRegister(inh);
                 reg_term_val = isNeedRegister(termlist_syn);
-                reg_result = registerS_Available();
-                reg_equ = registerS_Available();
+                reg_result = rm.registerS_Available();
+                reg_equ = rm.registerS_Available();
 
                 emitInstruction("seq", reg_result,reg_inh,reg_term_val);
 
                 termlist_syn = reg_result;
 
-                resetRegister();
+                rm.resetRegister();
                 System.out.println("EQUAL, Diter: "+inh+" "+termlist_syn);
                 break;
 
@@ -1357,13 +1454,13 @@ class Parser implements Constants
 
                 reg_inh = isNeedRegister(inh);
                 reg_term_val = isNeedRegister(termlist_syn);
-                reg_result = registerS_Available();
-                reg_equ = registerS_Available();
+                reg_result = rm.registerS_Available();
+                reg_equ = rm.registerS_Available();
 
                 emitInstruction("sge", reg_result,reg_inh,reg_term_val);
 
                 termlist_syn = reg_result;
-                resetRegister();
+                rm.resetRegister();
 
                 System.out.println("GREATER_EQUAL_THAN, compare: "+reg_inh+" "+reg_term_val);
                 break;
@@ -1374,13 +1471,13 @@ class Parser implements Constants
 
                 reg_inh = isNeedRegister(inh);
                 reg_term_val = isNeedRegister(termlist_syn);
-                reg_result = registerS_Available();
-                reg_equ = registerS_Available();
+                reg_result = rm.registerS_Available();
+                reg_equ = rm.registerS_Available();
 
                 emitInstruction("sle", reg_result,reg_inh,reg_term_val);
 
                 termlist_syn = reg_result;
-                resetRegister();
+                rm.resetRegister();
 
                 System.out.println("SMALLER_EQUAL_THAN, compare: "+inh+" "+termlist_syn);
                 break;
@@ -1391,12 +1488,12 @@ class Parser implements Constants
 
                 reg_inh = isNeedRegister(inh);
                 reg_term_val = isNeedRegister(termlist_syn);
-                reg_result = registerS_Available();
+                reg_result = rm.registerS_Available();
 
                 emitInstruction("sgt", reg_result,reg_inh,reg_term_val);
 
                 termlist_syn = reg_result;
-                resetRegister();
+                rm.resetRegister();
                 System.out.println("GREATER_THAN, compare: "+inh+" "+termlist_syn);
                 break;
 
@@ -1406,18 +1503,20 @@ class Parser implements Constants
 
                 reg_inh = isNeedRegister(inh);
                 reg_term_val = isNeedRegister(termlist_syn);
-                reg_result = registerS_Available();
+                reg_result = rm.registerS_Available();
 
                 emitInstruction("slt",reg_result, reg_inh,reg_term_val);
 
                 termlist_syn = reg_result;
-                resetRegister();
+                rm.resetRegister();
                 System.out.println("SMALLER_THAN, compare: "+inh+" "+termlist_syn);
                 break;
             case AND:
             case OR:
                 booleanExpression();
                 termlist_syn = inh;//!!!!!!!!!!!!!!!!wrong
+
+
                 break;
             case RIGHTPAREN:
             case SEMICOLON:
@@ -1425,6 +1524,7 @@ class Parser implements Constants
                 break;
             default:
                 throw genEx("Expecting \"+\", \")\", or \";\"");
+
         }
         return termlist_syn;
     }
@@ -1477,9 +1577,9 @@ class Parser implements Constants
                 String reg_inh = isNeedRegister(inh);
                 String reg_factor_val = isNeedRegister(factor_val);
 
-                String newidentifier = registerAvailable();
-                outFile.println("mult"+"\t"+reg_inh+",\t"+reg_factor_val);
-                outFile.println("mflo\t"+newidentifier);
+                String newidentifier = rm.registerAvailable();
+                emitInstruction("mult", reg_inh,reg_factor_val);
+                emitInstruction("mflo", newidentifier);
 
                 factorlist_syn = factorList(newidentifier);
                 break;
@@ -1489,10 +1589,10 @@ class Parser implements Constants
 
                 String reg_inh_div = isNeedRegister(inh);
                 String reg_factor_val_div = isNeedRegister(factor_val);
-                String newidentifier_div = registerAvailable();
+                String newidentifier_div = rm.registerAvailable();
 
-                outFile.println("div"+"\t"+reg_inh_div+",\t"+reg_factor_val_div);
-                outFile.println("mflo\t"+newidentifier_div);
+                emitInstruction("div", reg_inh_div,reg_factor_val_div);
+                emitInstruction("mflo", newidentifier_div);
 
                 factorlist_syn = factorList(newidentifier_div);
                 break;
@@ -1544,7 +1644,7 @@ class Parser implements Constants
                 t = currentToken;
                 consume(ID);
                 st.enter(t.image);
-                factor_val = registerAvailable();
+                factor_val = rm.registerAvailable();
                 loadVariable(factor_val, t.image);
                 break;
 
