@@ -1,39 +1,8 @@
-def void factor( int N ){
-	if( N > 1 ){
-		return N * cal factor( N - 1 );
-	}
-	else{
-		return 1;
-	}
-}
-
 def void main()
 {
-    int n,times;
-    times = 3;
-    //n = cal factor(times);
-    //println(n);
-    //return 0;
-
-    switch(times)
-    {
-        case 1:
-            println("1");
-        case 2:
-            println("2");
-        default:
-            println("default");
-    }
-
-    while(times >= 0)
-    {
-        n = cal factor(times);
-        println("\nResult of factor:");
-        println(times);
-        println("  -  ");
-        println(n);
-
-        times = times-1;
-    }
+    int n;
+    array arr[255];
+    n = 3;
+    println(n);
     return 0;
 }

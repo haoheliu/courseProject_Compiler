@@ -12,6 +12,8 @@ import java.io.*;
 import java.util.*;
 
 /**
+ *
+ *
  * About the compiler:
  *  function:
  *      compiler the C-like language to MIPS instructions
@@ -49,6 +51,8 @@ import java.util.*;
  *          print the number to output device
  *          print the string to output device
  *              the String can contain quotes, for example: "Compiler \\\" construction"
+ *
+ *
  * */
 
 class Compiler
@@ -141,7 +145,13 @@ interface Constants
     int CASE = 34;
     int DEFAULT = 35;
     int COLON = 36;
-
+    int GOTO = 37;
+    int BREAK = 38;
+    int CONTINUE = 39;
+    int DEST = 40;
+    int ARRAY = 41;
+    int LEFTBRACKET = 42;
+    int RIGHTBRACKET = 43;
 
     // tokenImage provides string for each token kind
     String[] tokenImage =
@@ -182,7 +192,14 @@ interface Constants
                     "switch",
                     "case",
                     "default",
-                    ":"
+                    ":",
+                    "goto",
+                    "break",
+                    "continue",
+                    "dest",
+                    "array",
+                    "[",
+                    "]"
             };
 }
 
@@ -314,14 +331,31 @@ class FuncSymTab
 class SymTab
 {
     private ArrayList<String> symbol;
-    private Map<String,FuncSymTab> func_tabs;
+    private Map<String,FuncSymTab> func_tabs; //
+    private ArrayList<String> global_var; // Storage for global variables
+
     //ArrayList: add & indexOf
     public SymTab()
     {
         symbol = new ArrayList<>();
         func_tabs = new HashMap<>();
-
+        global_var = new ArrayList<>();
     }
+    public void addGlobal(String s)
+    {
+        if(global_var.contains(s))
+            throw new RuntimeException("Error: "+s+" has already been defined!");
+        global_var.add(s);
+    }
+
+    public int locateGlobal(String s)
+    {
+        int index = global_var.indexOf(s);
+        if(index < 0)
+            index = -1;
+        return index;
+    }
+
     public void enter(String s)
     {
         int index = symbol.indexOf(s);
@@ -390,222 +424,242 @@ class TokenMgr implements Constants
             token.kind = EOF;
         }
         else
-            if (Character.isDigit(currentChar))
+        if (Character.isDigit(currentChar))
+        {
+            buffer.setLength(0);
+            do
             {
-                buffer.setLength(0);
-                do
+                buffer.append(currentChar);
+                token.endLine = currentLineNumber;
+                token.endColumn = currentColumnNumber;
+                getNextChar();
+            } while (Character.isDigit(currentChar));
+            token.image = buffer.toString();
+            token.kind = UNSIGNED;
+        }
+
+        else
+        if (Character.isLetter(currentChar))
+        {
+            buffer.setLength(0);
+            do
+            {
+                buffer.append(currentChar);
+                token.endLine = currentLineNumber;
+                token.endColumn = currentColumnNumber;
+                getNextChar();
+            } while (Character.isLetterOrDigit(currentChar));
+            token.image = buffer.toString();
+
+            if (token.image.equals("println"))
+                token.kind = PRINTLN;
+            else
+            if (token.image.equals("while"))
+                token.kind = WHILE;
+            else
+            if (token.image.equals("if"))
+                token.kind = IF;
+            else
+            if (token.image.equals("int"))
+                token.kind = INT;
+            else
+            if (token.image.equals("return"))
+                token.kind = RETURN;
+            else
+            if (token.image.equals("def"))
+                token.kind = DEF;
+            else
+            if (token.image.equals("void"))
+                token.kind = VOID;
+            else
+            if (token.image.equals("cal"))
+                token.kind = CAL;
+            else
+            if (token.image.equals("and"))
+                token.kind = AND;
+            else
+            if(token.image.equals("else"))
+                token.kind = ELSE;
+            else
+            if (token.image.equals("or"))
+                token.kind = OR;
+            else
+            if (token.image.equals("switch"))
+                token.kind = SWITCH;
+            else
+            if (token.image.equals("case"))
+                token.kind = CASE;
+            else
+            if (token.image.equals("goto"))
+                token.kind = GOTO;
+            else
+            if (token.image.equals("break"))
+                token.kind = BREAK;
+            else
+            if (token.image.equals("continue"))
+                token.kind = CONTINUE;
+            else
+            if(token.image.equals("dest"))
+                token.kind = DEST;
+            else
+            if(token.image.equals("array"))
+                token.kind = ARRAY;
+            else  // not a keyword so kind is ID
+                token.kind = ID;
+        }
+        else if (currentChar == '"') {
+            boolean done = false;
+            inString = true;
+            int backslashCounter = 0;
+            buffer.setLength(0);  // clear buffer
+            while (!done) {
+                do  // build token image in buffer
                 {
+                    if (currentChar == '\\'){
+                        backslashCounter++;
+                    }
                     buffer.append(currentChar);
-                    token.endLine = currentLineNumber;
-                    token.endColumn = currentColumnNumber;
                     getNextChar();
-                } while (Character.isDigit(currentChar));
+                    if (currentChar != '\\' && currentChar != '"'){
+                        backslashCounter = 0;
+                    }
+                    try {
+                        if (currentChar == '\\' && inputLine.charAt(currentColumnNumber+1) == '\n'){
+                            getNextChar();
+                        }
+                    } catch (Exception e) {
+                        getNextChar();
+                    }
+                    if (currentChar == '\n' || currentChar == '\r') {
+                        break;
+                    }
+                } while (currentChar != '"');
+                if (currentChar =='"' && backslashCounter % 2 == 0) //quote precede with even number of backslash
+                {
+                    done = true;
+                    backslashCounter = 0;
+                    buffer.append(currentChar);
+                    token.kind = STRING;
+                }
+                else if (currentChar =='"' && backslashCounter % 2 != 0) {
+                    backslashCounter = 0;
+                    continue;
+                }
+                else
+                    token.kind = ERROR;
+                token.endLine = currentLineNumber;
+                token.endColumn = currentColumnNumber;
+                getNextChar();
                 token.image = buffer.toString();
-                token.kind = UNSIGNED;
+                inString = false;
+            }
+        }
+        else  // process single-character token
+        {
+            switch(currentChar)
+            {
+                case '=':
+                    if(lookAhead(1) == '=')
+                    {
+                        token.kind = EQUAL;
+                        getNextChar();
+                        token.image = "==";
+                    } else {
+                        token.image = Character.toString(currentChar);
+                        token.kind = ASSIGN;
+                    }
+                    break;
+                case '>':
+                    if(lookAhead(1) == '=')
+                    {
+                        token.kind = GREATER_EQUAL_THAN;
+                        getNextChar();
+                        token.image = ">=";
+                    }else {
+                        token.image = Character.toString(currentChar);
+                        token.kind = GREATER_THAN;
+                    }
+                    break;
+                case '<':
+                    if(lookAhead(1) == '=')
+                    {
+                        token.kind = SMALLER_EQUAL_THAN;
+                        getNextChar();
+                        token.image = "<=";
+                    }else
+                    {
+                        token.image = Character.toString(currentChar);
+                        token.kind = SMALLER_THAN;
+                    }
+                    break;
+                case ';':
+                    token.kind = SEMICOLON;
+                    token.image = Character.toString(currentChar);
+                    break;
+                case '(':
+                    token.kind = LEFTPAREN;
+                    token.image = Character.toString(currentChar);
+                    break;
+                case ')':
+                    token.kind = RIGHTPAREN;
+                    token.image = Character.toString(currentChar);
+                    break;
+                case '+':
+                    token.kind = PLUS;
+                    token.image = Character.toString(currentChar);
+                    break;
+                case '-':
+                    token.kind = MINUS;
+                    token.image = Character.toString(currentChar);
+                    break;
+                case '*':
+                    token.kind = TIMES;
+                    token.image = Character.toString(currentChar);
+                    break;
+                case '/':
+                    token.kind = DIVIDE;
+                    token.image = Character.toString(currentChar);
+                    break;
+                case '{':
+                    token.kind = LEFTBRACE;
+                    token.image = Character.toString(currentChar);
+                    break;
+                case '}':
+                    token.kind = RIGHTBRACE;
+                    token.image = Character.toString(currentChar);
+                    break;
+                case ',':
+                    token.kind = COMMA;
+                    token.image = Character.toString(currentChar);
+                    break;
+                case '~':
+                    token.kind = END;
+                    token.image = Character.toString(currentChar);
+                case ':':
+                    token.kind = COLON;
+                    token.image = Character.toString(currentChar);
+                    break;
+                case '[':
+                    token.kind = LEFTBRACKET;
+                    token.image = Character.toString(currentChar);
+                    break;
+                case ']':
+                    token.kind = RIGHTBRACKET;
+                    token.image = Character.toString(currentChar);
+                    break;
+                default:
+                    token.kind = ERROR;
+                    token.image = Character.toString(currentChar);
+                    break;
             }
 
-            else
-                if (Character.isLetter(currentChar))
-                {
-                    buffer.setLength(0);
-                    do
-                    {
-                        buffer.append(currentChar);
-                        token.endLine = currentLineNumber;
-                        token.endColumn = currentColumnNumber;
-                        getNextChar();
-                    } while (Character.isLetterOrDigit(currentChar));
-                    token.image = buffer.toString();
+            // save currentChar as String in token.image
 
-                    if (token.image.equals("println"))
-                        token.kind = PRINTLN;
-                    else
-                    if (token.image.equals("while"))
-                        token.kind = WHILE;
-                    else
-                    if (token.image.equals("if"))
-                        token.kind = IF;
-                    else
-                    if (token.image.equals("int"))
-                        token.kind = INT;
-                    else
-                    if (token.image.equals("return"))
-                        token.kind = RETURN;
-                    else
-                    if (token.image.equals("def"))
-                        token.kind = DEF;
-                    else
-                    if (token.image.equals("void"))
-                        token.kind = VOID;
-                    else
-                    if (token.image.equals("cal"))
-                        token.kind = CAL;
-                    else
-                    if (token.image.equals("and"))
-                        token.kind = AND;
-                    else
-                    if(token.image.equals("else"))
-                        token.kind = ELSE;
-                    else
-                    if (token.image.equals("or"))
-                        token.kind = OR;
-                    else
-                    if (token.image.equals("switch"))
-                        token.kind = SWITCH;
-                    else
-                    if (token.image.equals("case"))
-                        token.kind = CASE;
-                    else
-                    if (token.image.equals("default"))
-                        token.kind = DEFAULT;
-                    else  // not a keyword so kind is ID
-                        token.kind = ID;
-                }
-                else if (currentChar == '"') {
-                    boolean done = false;
-                    inString = true;
-                    int backslashCounter = 0;
-                    buffer.setLength(0);  // clear buffer
-                    while (!done) {
-                        do  // build token image in buffer
-                        {
-                            if (currentChar == '\\'){
-                                backslashCounter++;
-                            }
-                            buffer.append(currentChar);
-                            getNextChar();
-                            if (currentChar != '\\' && currentChar != '"'){
-                                backslashCounter = 0;
-                            }
-                            try {
-                                if (currentChar == '\\' && inputLine.charAt(currentColumnNumber+1) == '\n'){
-                                    getNextChar();
-                                }
-                            } catch (Exception e) {
-                                getNextChar();
-                            }
-                            if (currentChar == '\n' || currentChar == '\r') {
-                                break;
-                            }
-                        } while (currentChar != '"');
-                        if (currentChar =='"' && backslashCounter % 2 == 0) //quote precede with even number of backslash
-                        {
-                            done = true;
-                            backslashCounter = 0;
-                            buffer.append(currentChar);
-                            token.kind = STRING;
-                        }
-                        else if (currentChar =='"' && backslashCounter % 2 != 0) {
-                            backslashCounter = 0;
-                            continue;
-                        }
-                        else
-                            token.kind = ERROR;
-                        token.endLine = currentLineNumber;
-                        token.endColumn = currentColumnNumber;
-                        getNextChar();
-                        token.image = buffer.toString();
-                        inString = false;
-                    }
-                }
-                else  // process single-character token
-                {
-                    switch(currentChar)
-                    {
-                        case '=':
-                            if(lookAhead(1) == '=')
-                            {
-                                token.kind = EQUAL;
-                                getNextChar();
-                                token.image = "==";
-                            } else {
-                                token.image = Character.toString(currentChar);
-                                token.kind = ASSIGN;
-                            }
-                            break;
-                        case '>':
-                            if(lookAhead(1) == '=')
-                            {
-                                token.kind = GREATER_EQUAL_THAN;
-                                getNextChar();
-                                token.image = ">=";
-                            }else {
-                                token.image = Character.toString(currentChar);
-                                token.kind = GREATER_THAN;
-                            }
-                            break;
-                        case '<':
-                            if(lookAhead(1) == '=')
-                            {
-                                token.kind = SMALLER_EQUAL_THAN;
-                                getNextChar();
-                                token.image = "<=";
-                            }else
-                            {
-                                token.image = Character.toString(currentChar);
-                                token.kind = SMALLER_THAN;
-                            }
-                            break;
-                        case ';':
-                            token.kind = SEMICOLON;
-                            token.image = Character.toString(currentChar);
-                            break;
-                        case '(':
-                            token.kind = LEFTPAREN;
-                            token.image = Character.toString(currentChar);
-                            break;
-                        case ')':
-                            token.kind = RIGHTPAREN;
-                            token.image = Character.toString(currentChar);
-                            break;
-                        case '+':
-                            token.kind = PLUS;
-                            token.image = Character.toString(currentChar);
-                            break;
-                        case '-':
-                            token.kind = MINUS;
-                            token.image = Character.toString(currentChar);
-                            break;
-                        case '*':
-                            token.kind = TIMES;
-                            token.image = Character.toString(currentChar);
-                            break;
-                        case '/':
-                            token.kind = DIVIDE;
-                            token.image = Character.toString(currentChar);
-                            break;
-                        case '{':
-                            token.kind = LEFTBRACE;
-                            token.image = Character.toString(currentChar);
-                            break;
-                        case '}':
-                            token.kind = RIGHTBRACE;
-                            token.image = Character.toString(currentChar);
-                            break;
-                        case ',':
-                            token.kind = COMMA;
-                            token.image = Character.toString(currentChar);
-                            break;
-                        case '~':
-                            token.kind = END;
-                            token.image = Character.toString(currentChar);
-                        case ':':
-                            token.kind = COLON;
-                            token.image = Character.toString(currentChar);
-                            break;
-                        default:
-                            token.kind = ERROR;
-                            token.image = Character.toString(currentChar);
-                            break;
-                    }
-
-                    // save currentChar as String in token.image
-
-                    // save token end location
-                    token.endLine = currentLineNumber;
-                    token.endColumn = currentColumnNumber;
-                    getNextChar();  // read beyond end
-                }
+            // save token end location
+            token.endLine = currentLineNumber;
+            token.endColumn = currentColumnNumber;
+            getNextChar();  // read beyond end
+        }
 
         return token;
     }
@@ -750,7 +804,14 @@ class Parser implements Constants
     private int identifiercount;
     private RegMgr rm;
     private StringMgr sm;
+
     private ArrayList<String> StringIdentifiers;
+
+    private String exitpoint; //The label we need for break statement
+    private String judgepoint; //The label we need for continue statement
+
+    int array_space = 0;
+
     private FuncSymTab ft;
     //the function we are working in
     private String currentfunction;
@@ -763,11 +824,17 @@ class Parser implements Constants
         this.rm = new RegMgr();
         this.sm = new StringMgr();
 
+        this.array_space = 0;
+
+        this.exitpoint = "";
+        this.judgepoint = "";
+
         this.StringIdentifiers = new ArrayList<>();
 
         this.currentfunction = "main";
         //This instance is shared between different functions, after parsing one, it will be reset
         this.ft = new FuncSymTab("main");
+
 
         currentToken = tm.getNextToken();
         previousToken = null;
@@ -825,6 +892,7 @@ class Parser implements Constants
         switch (currentToken.kind)
         {
             case DEF:
+            case INT:
                 programUnit();
                 programUnitList();
                 break;
@@ -840,6 +908,9 @@ class Parser implements Constants
             case DEF:
                 functionDefinition();
                 break;
+            case INT:
+                globalDeclarations();
+                break;
             default:
                 break;
         }
@@ -847,27 +918,28 @@ class Parser implements Constants
 
     private void functionDefinition()
     {
-            consume(DEF);
-            consume(VOID);
-            //Entrance of a function
-            outFile.println("\n"+currentToken.image+":");
-            //Update the function parsing in
-            currentfunction = currentToken.image;
-            ft.func_name = currentfunction;
-            consume(ID);
+        consume(DEF);
+        consume(VOID);
+        //Entrance of a function
+        outFile.println("\n"+currentToken.image+":");
+        //Update the function parsing in
+        currentfunction = currentToken.image;
+        ft.func_name = currentfunction;
+        consume(ID);
 
-            consume(LEFTPAREN);
-            int space_para = parameterList(); //empty
-            consume(RIGHTPAREN);
-            consume(LEFTBRACE);
-            int space_local = localDeclarations();
-            statementList();
-            returnStatement();
-            consume(RIGHTBRACE);
+        consume(LEFTPAREN);
+        int space_para = parameterList(); //empty
+        consume(RIGHTPAREN);
+        consume(LEFTBRACE);
+        int space_local = localDeclarations();
+        statementList();
+        returnStatement();
+        consume(RIGHTBRACE);
 
-            st.enterFunc(currentfunction, ft);
-            //Reset function
-            ft.reset();
+        st.enterFunc(currentfunction, ft);
+        //Reset function
+        ft.reset();
+        this.array_space = 0;
     }
 
     private int parameterList()
@@ -898,8 +970,55 @@ class Parser implements Constants
         }
     }
 
+    //Some global declarations between function definations
+    private void globalDeclarations()
+    {
+        switch (currentToken.kind)
+        {
+            case INT:
+                consume(INT);
+                String nameGloble = currentToken.image;
+                st.addGlobal(nameGloble);// Add this global variable into the symbol table
+                emitInstruction("addi","$gp","$gp","4"); // Spare some space for global variabless
+                consume(ID);
+                globalTail();
+                consume(SEMICOLON);
+                globalDeclarations();
+
+            case ARRAY:
+                consume(ARRAY);
+                consume(ID);
+                consume(LEFTBRACKET);
+                int space = Integer.parseInt(currentToken.image);
+                consume(UNSIGNED);
+                consume(RIGHTBRACKET);
+                consume(SEMICOLON);
+                globalDeclarations();
+
+            default:
+                break;
+        }
+    }
+
+    private void globalTail()
+    {
+        switch (currentToken.kind)
+        {
+            case COMMA:
+                consume(COMMA);
+                String nameGloble = currentToken.image;
+                st.addGlobal(nameGloble);
+                emitInstruction("addi","$gp","$gp","4"); // Spare some space for global variabless
+                consume(ID);
+
+            default:
+                break;
+        }
+    }
+
     private int localDeclarations()
     {
+        int space = 0;
         switch (currentToken.kind)
         {
             case INT:
@@ -907,10 +1026,25 @@ class Parser implements Constants
                 ft.varEnter(currentToken.image);
                 consume(ID);
                 localTail();
-                int space = (-4)*ft.varLength();
+                space = (-4)*ft.varLength();
                 //Expand memory space according to the declaration
                 emitInstruction("addi", "$sp","$sp",""+space);
                 consume(SEMICOLON);
+                //Recursively call this function and sum the overall space together!
+                space += localDeclarations();
+                return space;
+            case ARRAY:
+                consume(ARRAY);
+                consume(ID);
+                consume(LEFTBRACKET);
+                space = Integer.parseInt(currentToken.image)*4;
+                this.array_space += space; //Record the space of array inside the function calling stack
+                consume(UNSIGNED);
+                consume(RIGHTBRACKET);
+                consume(SEMICOLON);
+                emitInstruction("addi", "$sp","$sp","-"+space); //!!!!!!!!!!!!!!!!!!!!!!!!
+                System.out.println("Successfully parse array!");
+                space += localDeclarations();
                 return space;
             default:
                 return 0;
@@ -974,6 +1108,10 @@ class Parser implements Constants
             case WHILE:
             case PRINTLN:
             case IF:
+            case GOTO:
+            case BREAK:
+            case CONTINUE:
+            case DEST:
             case CAL:
             case RETURN:
             case LEFTBRACE:
@@ -1019,10 +1157,50 @@ class Parser implements Constants
             case SWITCH:
                 switchStatement();
                 break;
+            case GOTO:
+            case BREAK:
+            case CONTINUE:
+            case DEST:
+                jumpStatement();
+                break;
             default:
                 throw genEx("Expecting statement");
         }
     }
+
+    private void jumpStatement()
+    {
+        switch (currentToken.kind)
+        {
+            case GOTO:
+                consume(GOTO);
+                String destination = currentToken.image;
+                consume(ID);
+                consume(SEMICOLON);
+                emitInstruction("j", destination);
+                break;
+            case BREAK:
+                consume(BREAK);
+                consume(SEMICOLON);
+                emitInstruction("j", exitpoint);
+                break;
+            case CONTINUE:
+                consume(CONTINUE);
+                consume(SEMICOLON);
+                emitInstruction("j", judgepoint);
+                break;
+            case DEST:
+                consume(DEST);
+                String place = currentToken.image;
+                consume(ID);
+                consume(SEMICOLON);
+                outFile.println(place+":");
+                break;
+            default:
+                break;
+        }
+    }
+
     private void switchStatement()
     {
         consume(SWITCH);
@@ -1135,18 +1313,19 @@ class Parser implements Constants
 
         pointer = 0;
 
+        //Reload the saved registers' value into the previous registers
         for(int i=0;i<reg_t;i++)
         {
             emitInstruction("lw", "$t"+i,pointer+"($sp)");
             pointer+=4;
         }
+
         for(int i=0;i<reg_s;i++)
         {
             emitInstruction("lw", "$s"+i,pointer+"($sp)");
             pointer+=4;
-        }emitInstruction("addi", "$sp","$sp",""+(-1)*save_reg);
-
-
+        }
+        emitInstruction("addi", "$sp","$sp",""+(-1)*save_reg);
     }
     /**
      * @ArgumentList
@@ -1182,32 +1361,51 @@ class Parser implements Constants
         }
     }
 
+    /**
+     * This function is defined in order to unify the "load" operation from local variables and global varibales
+     * */
     private void loadVariable(String reg,String var)
     {
+        //Firstly we find these variables in global variable list
+        int index = st.locateGlobal(var);
+        System.out.println("index of the globle variable: "+index);
+        if(index >= 0) // If this variable is found in global variable list
+        {
+            emitInstruction("lw",reg,(index*4)+"($gp)");
+            return;
+        }
         //Search this symbol in symtable
-        int index = ft.argLocate(var);
-        //Defined in args list
+        index = ft.argLocate(var);
         if(index >= 0)
         {
+            //If this variable is defined in args list
             /**@marked
              * The push sequence and index sequence are inverse
              * So we need some tricks
              * */
             emitInstruction("lw",reg, (4*(ft.argLength()+1)-index*4)+"($fp)");
         }
-
         else if(index < 0)
         {
+            //If this variable is defined in local variables list
             index = ft.varLocate(var);
-            if(index >= 0)emitInstruction("lw",reg, (4*(ft.varLength()-1)-index*4)+"($sp)");
-            System.out.println("here:"+index);
+            if(index >= 0)emitInstruction("lw",reg, this.array_space+(4*(ft.varLength()-1)-index*4)+"($sp)");
+
         }
         if(index < 0) throw genEx(var+" not defined");
     }
 
     private void saveVariable(String reg,String var)
     {
-        int index = ft.argLocate(var);
+        //Firstly we find these variables in global variable list
+        int index = st.locateGlobal(var);
+        System.out.println("index of the globle variable: "+index);
+        if(index >= 0) // If this variable is found in global variable list
+        {
+            emitInstruction("sw", reg,(index*4)+"($gp)");
+            return;
+        }
+        index = ft.argLocate(var);
         //Defined in args list
         if(index >= 0)
         {
@@ -1216,7 +1414,7 @@ class Parser implements Constants
         else if(index < 0)
         {
             index = ft.varLocate(var);
-            emitInstruction("sw",reg, (4*(ft.varLength()-1)-index*4)+"($sp)");
+            emitInstruction("sw",reg, this.array_space+(4*(ft.varLength()-1)-index*4)+"($sp)");
         }
         if(index < 0) throw genEx(var+" not defined");
     }
@@ -1306,8 +1504,12 @@ class Parser implements Constants
 
     private void whileStatement()
     {
-        String judge_point = identifierAvailable();
-        String judge_exit = identifierAvailable();
+        String judge_point = identifierAvailable(); //Start the judge of while statement
+        String judge_exit = identifierAvailable(); // The label of the exit point of while statement
+
+        exitpoint = judge_exit; // These two label are used by break and continue statements
+        judgepoint = judge_point;
+
         String judge;
         outFile.println(judge_point+":");
         consume(WHILE);
@@ -1425,8 +1627,7 @@ class Parser implements Constants
                 reg_term_val = isNeedRegister(term_val);
                 reg_result = rm.registerAvailable();
 
-
-                emitInstruction("sub", reg_result,reg_term_val,reg_inh);
+                emitInstruction("sub", reg_result,reg_inh,reg_term_val);
 
                 termlist_syn = termList(reg_result);
                 break;
