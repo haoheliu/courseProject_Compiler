@@ -1,13 +1,3 @@
-int global1,global2;
-array arr1[80];
+//Function call need not ';'
 
-def void main()
-{
-    int n,times;
-    array arr2[100];
-    array arr[255];
-    arr[66] = 65535;
-    println(arr[66]);
 
-    return 0;
-}

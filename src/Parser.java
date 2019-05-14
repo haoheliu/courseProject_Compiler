@@ -100,6 +100,7 @@ public class Parser implements Constants
         {
             case DEF:
             case INT:
+            case ARRAY:
                 programUnit();
                 programUnitList();
                 break;
@@ -116,6 +117,7 @@ public class Parser implements Constants
                 functionDefinition();
                 break;
             case INT:
+            case ARRAY:
                 globalDeclarations();
                 break;
             default:
@@ -141,6 +143,12 @@ public class Parser implements Constants
         int space_local = localDeclarations();
         statementList();
         returnStatement();
+
+        emitInstruction("lw", "$ra","4($fp)");
+        emitInstruction("lw", "$fp","0($fp)");
+        emitInstruction("addi", "$sp","$sp",""+ft.getSpace());
+        emitInstruction("jr", "$ra");
+
         consume(RIGHTBRACE);
 
         st.enterFunc(currentfunction, ft);
@@ -473,10 +481,7 @@ public class Parser implements Constants
                 String reg_result = isNeedRegister(expr());
                 emitInstruction("move", "$v0",reg_result);
                 consume(SEMICOLON);
-                emitInstruction("lw", "$ra","4($fp)");
-                emitInstruction("lw", "$fp","0($fp)");
-                emitInstruction("addi", "$sp","$sp",""+ft.getSpace());
-                emitInstruction("jr", "$ra");
+
                 return true;
             default:
                 return false;
@@ -585,9 +590,18 @@ public class Parser implements Constants
              * ********/
             String name = var.substring(0, var.indexOf('['));
             int arr_index = Integer.parseInt(var.substring(var.indexOf('[')+1, var.indexOf(']')));
-            int offset = ft.arrLocate(name);
 
-            emitInstruction("lw", reg,offset+arr_index*4+"($sp)");
+            int offset = st.locateGlobalArr(name);
+            if(offset < 0)
+            {
+                offset = ft.arrLocate(name);
+                emitInstruction("lw", reg,offset+arr_index*4+"($sp)");
+            }else
+            {
+                int base = st.getGlobalVarSize(); //Start from the last item of global variables
+                emitInstruction("lw",reg,base+offset+arr_index*4+"($gp)");
+            }
+
 //            System.out.println("String name:"+name);
 //            System.out.println("String name:"+offset);
         }else {
@@ -628,9 +642,18 @@ public class Parser implements Constants
         {
             String name = var.substring(0, var.indexOf('['));
             int arr_index = Integer.parseInt(var.substring(var.indexOf('[')+1, var.indexOf(']')));
-            int offset = ft.arrLocate(name);
+            int offset = st.locateGlobalArr(name);
 
-            emitInstruction("sw", reg,offset+arr_index*4+"($sp)");
+            if(offset < 0)
+            {
+                offset = ft.arrLocate(name);
+                emitInstruction("sw", reg,offset+arr_index*4+"($sp)");
+            }else
+            {
+                int base = st.getGlobalVarSize(); //Start from the last item of global variables
+                emitInstruction("sw",reg,base+offset+arr_index*4+"($gp)");
+            }
+
 
         }else{
             //Firstly we find these variables in global variable list

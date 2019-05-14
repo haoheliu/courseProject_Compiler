@@ -22,6 +22,12 @@ public class SymTab
         global_arr_offset.add(0); //The first element in the global_arr_name's offset should be 0
         this.current_offset = 0;
     }
+
+    public int getGlobalVarSize()
+    {
+        return global_var.size()*4;
+    }
+
     public void addGlobalArr(String name,int space)
     {
         //First we need to get rid of the "[xxx]" part of it
@@ -36,14 +42,15 @@ public class SymTab
             global_arr_offset.add(current_offset);
         }else throw new RuntimeException("Error: global variable"+name+" have already been defined");
     }
+
     public int locateGlobalArr(String name)
     {
         int index = global_arr_name.indexOf(name);
         if(index >= 0)
         {
-            return this.global_arr_offset.get(index)+global_var.size()*4; //The "int" global variables are at the bottom, so need to be added first!
+            return this.global_arr_offset.get(index);
         }else
-            throw new RuntimeException("Error: This array have not been defined!");
+            return -1;
     }
 
     public void addGlobal(String s)
