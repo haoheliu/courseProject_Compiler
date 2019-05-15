@@ -582,18 +582,23 @@ public class Parser implements Constants
     private void loadVariable(String reg,String var)
     {
         int index;
+        /***************
+         * First consider whether this variable is an array
+         * Then we need some code to loadvariable into register
+         * ********/
         if(var.indexOf('[') > 0 && var.indexOf(']') > 0)
         {
-            /***************
-             * First consider whether this variable is an array
-             * Then we need some code to loadvariable into register
-             * ********/
             String name = var.substring(0, var.indexOf('['));
             int arr_index = Integer.parseInt(var.substring(var.indexOf('[')+1, var.indexOf(']')));
-
+            /**
+             * First consider if it's a global array
+             * */
             int offset = st.locateGlobalArr(name);
             if(offset < 0)
             {
+                /**
+                 * If not global array, see if it's an array defined within function
+                 * */
                 offset = ft.arrLocate(name);
                 emitInstruction("lw", reg,offset+arr_index*4+"($sp)");
             }else
@@ -605,7 +610,9 @@ public class Parser implements Constants
 //            System.out.println("String name:"+name);
 //            System.out.println("String name:"+offset);
         }else {
-            //Firstly we find these variables in global variable list
+            /**
+             * If not array, first consider if it's global variable
+             * */
             index = st.locateGlobal(var);
             System.out.println("index of the globle variable: "+index);
             if(index >= 0) // If this variable is found in global variable list
@@ -613,7 +620,9 @@ public class Parser implements Constants
                 emitInstruction("lw",reg,(index*4)+"($gp)");
                 return;
             }
-            //Search this symbol in symtable
+            /**
+             * If not global variables, consider if it's local variable
+             * */
             index = ft.argLocate(var);
             if(index >= 0)
             {

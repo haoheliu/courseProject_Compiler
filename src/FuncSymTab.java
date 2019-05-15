@@ -111,8 +111,4 @@ public class FuncSymTab
     {
         throw new RuntimeException("\nError: "+item+" is already defined");
     }
-    private void genNf(String item)
-    {
-        throw new RuntimeException("\nError: "+item+" not defined");
-    }
 }
