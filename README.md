@@ -2,9 +2,7 @@ CourseProject - Compiler
 
 <u>Using java to implement a simple compiler</u>
 
-<!-- TOC -->
-autoauto- [1. Overall mindmap](#1-overall-mindmap)auto- [2. Syntax support](#2-syntax-support)auto    - [2.1. 算术语法](#21-算术语法)auto        - [2.1.1. calculations(- +,-,*,/)](#211-calculations---)auto        - [2.1.2. boolean expressions (and,or)](#212-boolean-expressions-andor)auto        - [2.1.3. comparision (>,<,<=,>=,!=,==)](#213-comparision-)auto        - [2.1.4. 赋值语句](#214-赋值语句)auto    - [2.2. 选择和分支](#22-选择和分支)auto        - [2.2.1. if-else](#221-if-else)auto        - [2.2.2. switch(尚未实现)](#222-switch尚未实现)auto        - [2.2.3. while](#223-while)auto        - [2.2.4. 全局变量](#224-全局变量)auto        - [2.2.5. const常量](#225-const常量)auto        - [2.2.6. function Defination](#226-function-defination)auto        - [2.2.7. functioncall](#227-functioncall)auto        - [2.2.8. goto & dest](#228-goto--dest)auto    - [2.3. Built-in functions](#23-built-in-functions)auto        - [2.3.1. 标准输出](#231-标准输出)auto        - [2.3.2. 标准输入 (尚未实现)](#232-标准输入-尚未实现)auto    - [2.4. 字符串与转义字符](#24-字符串与转义字符)auto    - [2.5. Comment](#25-comment)auto    - [2.6. Error report](#26-error-report)auto        - [2.6.1. 一个通用的报错函数](#261-一个通用的报错函数)auto        - [2.6.2. 局部符号表FuncSymTab的报错](#262-局部符号表funcsymtab的报错)auto        - [2.6.3. 全局符号表的报错](#263-全局符号表的报错)auto        - [2.6.4. 寄存器分配溢出错误](#264-寄存器分配溢出错误)auto- [3. 一些实现细节 (见代码注释)](#3-一些实现细节-见代码注释)auto    - [3.1. 函数内部定义的变量在load和save的时候如何在内存中定位](#31-函数内部定义的变量在load和save的时候如何在内存中定位)auto    - [3.2. 被调用者保存寄存器的实现](#32-被调用者保存寄存器的实现)auto    - [3.3. 函数调用直接用于算术表达式](#33-函数调用直接用于算术表达式)auto    - [3.4. 符号表设计（全局符号表和局部符号表）](#34-符号表设计全局符号表和局部符号表)auto    - [3.5. 局部变量与局部数组同时存在时如何正确定位数组基址](#35-局部变量与局部数组同时存在时如何正确定位数组基址)auto    - [3.6. 寄存器分配复位的时机](#36-寄存器分配复位的时机)auto    - [3.7. 各种变量和数组的load、save逻辑](#37-各种变量和数组的loadsave逻辑)auto- [4. 文法设计](#4-文法设计)auto    - [4.1. 上层文法：程序，函数定义，全局声明](#41-上层文法程序函数定义全局声明)auto    - [4.2. 中层文法：不同种类的statements](#42-中层文法不同种类的statements)auto    - [4.3. 中层文法细化->非终结符的产生式](#43-中层文法细化-非终结符的产生式)auto    - [4.4. 低层文法：布尔表达式，算术表达式](#44-低层文法布尔表达式算术表达式)auto- [5. Problem encountered](#5-problem-encountered)auto    - [5.1. 函数调用栈设计](#51-函数调用栈设计)auto    - [5.2. 寄存器分配设计](#52-寄存器分配设计)auto- [6. Test cases:](#6-test-cases)auto    - [6.1. Recursive function calling & breakStatement &continue Statement & globalStatement](#61-recursive-function-calling--breakstatement-continue-statement--globalstatement)auto    - [6.2. 数组测试](#62-数组测试)auto    - [6.3. Test case:](#63-test-case)auto    - [6.4. 全局数组测试](#64-全局数组测试)autoauto
-<!-- /TOC -->
+<!-- TOC -->autoauto- [1. Overall mindmap 思路](#1-overall-mindmap-思路)auto- [2. Syntax support 支持的语法](#2-syntax-support-支持的语法)auto    - [2.1. alrithmetic 算术语法](#21-alrithmetic-算术语法)auto        - [2.1.1. calculations(- +,-,*,/)](#211-calculations---)auto        - [2.1.2. boolean expressions (and,or)](#212-boolean-expressions-andor)auto        - [2.1.3. comparision (>,<,<=,>=,!=,==)](#213-comparision-)auto        - [2.1.4. 赋值语句](#214-赋值语句)auto    - [2.2. 选择和分支](#22-选择和分支)auto        - [2.2.1. if-else](#221-if-else)auto        - [2.2.2. switch(尚未实现)](#222-switch尚未实现)auto        - [2.2.3. while](#223-while)auto        - [2.2.4. 全局变量](#224-全局变量)auto        - [2.2.5. const常量](#225-const常量)auto        - [2.2.6. function Defination](#226-function-defination)auto        - [2.2.7. functioncall](#227-functioncall)auto        - [2.2.8. goto & dest](#228-goto--dest)auto    - [2.3. Built-in functions](#23-built-in-functions)auto        - [2.3.1. 标准输出](#231-标准输出)auto        - [2.3.2. 标准输入 (尚未实现)](#232-标准输入-尚未实现)auto    - [2.4. 字符串与转义字符](#24-字符串与转义字符)auto    - [2.5. Comment](#25-comment)auto    - [2.6. Error report](#26-error-report)auto        - [2.6.1. 一个通用的报错函数](#261-一个通用的报错函数)auto        - [2.6.2. 局部符号表FuncSymTab的报错](#262-局部符号表funcsymtab的报错)auto        - [2.6.3. 全局符号表的报错](#263-全局符号表的报错)auto        - [2.6.4. 寄存器分配溢出错误](#264-寄存器分配溢出错误)auto- [3. 一些实现细节 (详见代码注释)](#3-一些实现细节-详见代码注释)auto    - [3.1. 函数内部定义的变量在load和save的时候如何在内存中定位](#31-函数内部定义的变量在load和save的时候如何在内存中定位)auto    - [3.2. 被调用者保存寄存器的实现](#32-被调用者保存寄存器的实现)auto    - [3.3. 函数调用直接用于算术表达式](#33-函数调用直接用于算术表达式)auto    - [3.4. 符号表设计（全局符号表和局部符号表）](#34-符号表设计全局符号表和局部符号表)auto    - [3.5. 局部变量与局部数组同时存在时如何正确定位数组基址](#35-局部变量与局部数组同时存在时如何正确定位数组基址)auto    - [3.6. 寄存器分配复位的时机](#36-寄存器分配复位的时机)auto    - [3.7. 各种变量和数组的load、save逻辑](#37-各种变量和数组的loadsave逻辑)auto- [4. 文法设计](#4-文法设计)auto    - [4.1. 上层文法：程序，函数定义，全局声明](#41-上层文法程序函数定义全局声明)auto    - [4.2. 中层文法：不同种类的statements](#42-中层文法不同种类的statements)auto    - [4.3. 中层文法细化->非终结符的产生式](#43-中层文法细化-非终结符的产生式)auto    - [4.4. 低层文法：布尔表达式，算术表达式](#44-低层文法布尔表达式算术表达式)auto- [5. Key problems 重点问题](#5-key-problems-重点问题)auto    - [5.1. Design of function calling stack 函数调用栈设计](#51-design-of-function-calling-stack-函数调用栈设计)auto    - [5.2. Strategy for register management 寄存器分配设计](#52-strategy-for-register-management-寄存器分配设计)auto- [6. Test cases:](#6-test-cases)auto    - [6.1. Recursive function calling & breakStatement &continue Statement & globalStatement](#61-recursive-function-calling--breakstatement-continue-statement--globalstatement)auto    - [6.2. 数组测试](#62-数组测试)auto    - [6.3. 递归调用寄存器保存测试:](#63-递归调用寄存器保存测试)auto    - [6.4. 全局数组测试](#64-全局数组测试)autoauto<!-- /TOC -->
 
 # 1. Overall mindmap 思路
 词法分析器->语法分析器（递归下降，语法制导翻译）->寄存器分配和代码优化->MIPS指令
@@ -637,3 +635,57 @@ def void main()
 - 为了将数组内元素的使用和变量ID的使用统一起来，我修改了词法分析器，使得其将数组元素的使用也看作ID的使用，而后修改loadVriable中的代码使得其可以辨识出是要加载的是普通的变量还是数组中的参数  
 
 - 将数组定义时连同中括号以及内部的数字一同作为ID还可以使得变量和数组具有相同的名字而不会冲突
+
+
+- 测试函数内部数组：
+```c
+//Function call need not ';'
+def void main(int argtest)
+{
+    array s[100];
+    int a;              //test whether the offset is set correctly
+    array s2[4];
+    s2[1] = 100;
+    //LOCAL TEST
+    //a = 456;    
+    //s[3] = 655*a + s2[1] ;  //test the load and save of array element
+    //ARGS TEST
+    argtest = 456;    
+    s[3] = 655*argtest + s2[1] ;  //test the load and save of array element
+    println(s[3]);     
+}
+```
+
+
+```c
+def void factor( int N ){
+	if( N > 1 ){
+		return N * cal factor( N - 1 );
+	}
+	else{
+		return 1;
+	}
+}
+
+def void main(int argtest)
+{
+    //                                                                      ARRAY TEST
+    array s[100];
+    int a,times;              //test whether the offset is set correctly
+    array s2[4];
+    s2[1] = 100;
+    //                                                                          LOCAL TEST
+    //a = 456;    
+    //s[3] = 655*a + s2[1] ;  //test the load and save of array element
+    //                                                                          ARGS TEST
+    argtest = 456;
+    s[3] = 655*argtest + s2[1] ;  //test the load and save of array element
+    println(s[3]);
+    //                                                                      RECURSIVE TEST
+    times = 6;
+    a = cal factor(times);
+    println("Result of recursive test: \n");
+    println(a);
+    println("\n");
+}
+```

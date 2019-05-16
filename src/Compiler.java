@@ -132,7 +132,7 @@ interface Constants
     int SMALLER_THAN = 21;
     int GREATER_EQUAL_THAN = 22;
     int SMALLER_EQUAL_THAN = 23;
-    int INT = 24;
+    int INT = 24;   //Used as variable type
     int RETURN = 25;
     int DEF = 26;
     int VOID = 27;
@@ -149,9 +149,12 @@ interface Constants
     int BREAK = 38;
     int CONTINUE = 39;
     int DEST = 40;
-    int ARRAY = 41;
+    int ARRAY = 41; //Used as variable type
     int LEFTBRACKET = 42;
     int RIGHTBRACKET = 43;
+
+    int CONST = 44; //Used as variable type
+    int ARGS = 45;  //Used as variable type
 
     // tokenImage provides string for each token kind
     String[] tokenImage =

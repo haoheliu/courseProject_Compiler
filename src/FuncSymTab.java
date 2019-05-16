@@ -1,114 +1,178 @@
 import java.util.ArrayList;
 
-public class FuncSymTab
+
+class FuncSymTab implements Constants
 {
-    public String func_name;
-    public int args_num;
-    public int vars_num;
-    public int reg_saved;
-    private int current_offset;
-    private ArrayList<String> args;
-    private ArrayList<String> vars;
-    private ArrayList<String> arr_names;    //The arraies' name defined within the function
-    private ArrayList<Integer> arr_offsets; // The arraies offset (compared with $sp)
+    String name;
+    public int base_offset;
+    public ArrayList<Var> vars;
 
-    public FuncSymTab(String func_name)
+    public int local_var_num;
+    public int local_args_num;
+
+    public int space;
+
+    public FuncSymTab(){}
+
+    public FuncSymTab(String name)
     {
-        this.args = new ArrayList<>();
-        this.vars = new ArrayList<>();
-        this.arr_names = new ArrayList<>();
-        this.arr_offsets = new ArrayList<>();
-        this.arr_offsets.add(0);
-
-        this.args_num = 0;
-        this.vars_num = 0;
-        this.current_offset = 0;
-        this.func_name = func_name;
+        this.name = name;
+        vars= new ArrayList<>();
+        this.base_offset = 0;
+        this.local_var_num = 0;
+        this.local_args_num = 0;
     }
-
-    public int getSpace() {
-        return 4 * (2 + this.args_num + this.vars_num);
-    }
-
-    public void arrEnter(String name,int space)
+    /**
+     * Enter for ARRAY
+     * */
+    public void Enter(String name,int type,int size)
     {
-        //First we need to get rid of the "[xxx]" part of it
-        int first_left_bracket = name.indexOf('[');
-        name = name.substring(0, first_left_bracket);
-        //Then consider whether it is in our array table
-        int index = arr_names.indexOf(name);
-        if(index<0)
+        if(type == ARRAY)
         {
-            this.current_offset += space;
-            arr_names.add(name);
-            arr_offsets.add(current_offset);
-        }else genDf(name);
+            Var temp = new Var(name,type,size);
+            temp.name = temp.name.substring(0, temp.name.indexOf('['));
+            if(vars.indexOf(temp) < 0){
+                this.vars.add(temp);
+            }else{
+                throw new RuntimeException("Error: ["+name+"] Array has already been defined");
+            }
+        }else throw new RuntimeException("Error: The function \"Enter\" used is not compatible");
     }
-
-    //Return the offset from the &sp pointer to the start of the array
-    public int arrLocate(String name)
+    /**
+     * Enter for INT and CONST
+     * */
+    public void Enter(String name,int type)
     {
-        int index = arr_names.indexOf(name);
+        if(type == INT || type == CONST || type == ARGS)
+        {
+            Var temp = new Var(name,type);
+            if(vars.indexOf(temp) < 0)
+            {
+                this.vars.add(temp);
+                //Update the number of localVariables as well as args
+                if(type == INT) this.local_var_num ++;
+                if(type == ARGS)this.local_args_num++;
+            }else{
+                throw new RuntimeException("Error: ["+name+"] Variable has already been defined");
+            }
+        }else throw new RuntimeException("Error: The function \"Enter\" used is not compatible");
+    }
+    /**
+     * Return offset value for array,int and const
+     * */
+    public int getOffset(String name, int type)
+    {
+        int offset = 0;
+        Var temp = new Var();
+        temp.name = name;
+        temp.type = type;
+        int index = this.vars.indexOf(temp);
         if(index >= 0)
         {
-            return this.arr_offsets.get(index);
-        }else
-            throw new RuntimeException("Error: This array have not been defined!");
-    }
-
-    //on parsing: enter the args
-    public void argEnter(String arg)
-    {
-        int index = args.indexOf(arg);
-        if(index<0)
-        {
-            args.add(arg);
-            args_num++;
+            temp = vars.get(index);
+            offset = temp.offset;
+            return offset+this.base_offset;
         }
-        else genDf(arg);
+        else return -1;
     }
-
-    public void varEnter(String var)
+    /**
+     * @LastStepOfFuncSymTab
+     * The initial value in "Var" is their size
+     * After this function we will have it's offset from base_pointer
+     * */
+    public void initCalBasementValue()
     {
-        if(args.indexOf(var)>=0)genDf(var);
-        int index = vars.indexOf(var);
-        if(index<0)
+        int offset = 0;
+        Var temp = new Var();
+        for(int i=vars.size();i>0;i--)
         {
-            vars.add(var);
-            vars_num++;
+            temp = vars.get(i-1); //Get the i-th element
+            temp.offset = offset; //update it's offset
+            offset += temp.size;
+            vars.set(i-1, temp);  //Update this element to : vars
         }
-        else genDf(var);
+
+        int j=1;
+        temp = vars.get(0);
+
+        while(temp.type == ARGS){
+            try {
+                temp = vars.get(j);
+            }catch (Exception e){
+                break;
+            }
+            j++;
+        }
+        /**
+         * This value is extremely important to the pop of function stack
+         * */
+        if(temp.type == ARGS)
+            this.space = this.local_args_num*4+8; //The space used by array,const and int
+        else
+            this.space = temp.size+temp.offset+this.local_args_num*4+8;
+
+        int start_offset_fp = 8;
+        for(int i=0;i<vars.size();i++)
+        {
+            temp = vars.get(i); //Get the i-th element
+            if(temp.type == ARGS){
+                temp.offset = start_offset_fp; //update it's offset
+                start_offset_fp += 4;
+            }
+            else break;
+            vars.set(i, temp);  //Update this element to : vars
+        }
+
     }
 
-    public int varLength()
-    {
-        return this.vars.size();
-    }
-    public int argLength()
-    {
-        return this.args.size();
-    }
-    //locate the memory location of this arg
-    public int argLocate(String arg)
-    {
-        return args.indexOf(arg);
-    }
-
-    public int varLocate(String arg)
-    {
-        return vars.indexOf(arg);
-    }
     public void reset()
     {
-        this.func_name = "";
-        this.args.clear();
-        this.vars.clear();
-        this.vars_num = 0;
-        this.args_num = 0;
+        this.vars= new ArrayList<>();
+        this.base_offset = 0;
+        this.local_var_num = 0;
+        this.local_args_num = 0;
     }
-    //Exceptions
-    private void genDf(String item)
+
+}
+
+class Var implements Constants
+{
+    public String name;
+    public int offset; //
+    public int size;
+    public int type;
+
+    public Var(){}
+
+    //For array
+    public Var(String name,int type,int size)
     {
-        throw new RuntimeException("\nError: "+item+" is already defined");
+        if(type != ARRAY)
+            throw new RuntimeException("Error: Wrong construction method");
+        this.name = name;
+        this.type = type;
+        this.size = size;
+    }
+    //For int and constant
+    public Var(String name,int type)
+    {
+        if(type != CONST && type != INT && type != ARGS)
+            throw new RuntimeException("Error: Wrong construction method");
+        this.name = name;
+        this.type = type;
+        this.size = 4;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if(o instanceof Var)
+        {
+            if( ((Var) o).name.equals(this.name) &&
+                    ((Var) o).type == this.type)
+                return true;
+            else return false;
+        }
+        return false;
     }
 }

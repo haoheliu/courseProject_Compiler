@@ -35,7 +35,6 @@ public class Parser implements Constants
 
         this.exitpoint = "";
         this.judgepoint = "";
-
         this.StringIdentifiers = new ArrayList<>();
 
         this.currentfunction = "main";
@@ -49,15 +48,24 @@ public class Parser implements Constants
 
     private void emitInstruction(String func,String op1)
     {
-        outFile.println(func+"\t"+op1);
+        outFile.print(func+"\t"+op1);
+        outFile.println("");
     }
     private void emitInstruction(String func,String op1,String op2)
     {
-        outFile.println(func+"\t"+op1+",\t"+op2);
+        outFile.print(func+"\t"+op1+",\t"+op2);
+        outFile.println("");
     }
     private void emitInstruction(String func,String op1,String op2,String op3)
     {
-        outFile.println(func+"\t"+op1+",\t"+op2+",\t"+op3);
+        outFile.print(func+"\t"+op1+",\t"+op2+",\t"+op3);
+        outFile.println("");
+    }
+
+    private void emitInstruction(String func,String op1,String op2,String op3,String comment)
+    {
+        outFile.print(func+"\t"+op1+",\t"+op2+",\t"+op3);
+        outFile.println("\t\t\t"+comment);
     }
 
 
@@ -133,7 +141,7 @@ public class Parser implements Constants
         outFile.println("\n"+currentToken.image+":");
         //Update the function parsing in
         currentfunction = currentToken.image;
-        ft.func_name = currentfunction;
+        ft.name = currentfunction;
         consume(ID);
 
         consume(LEFTPAREN);
@@ -141,18 +149,23 @@ public class Parser implements Constants
         consume(RIGHTPAREN);
         consume(LEFTBRACE);
         int space_local = localDeclarations();
+
+        ft.initCalBasementValue();
+
         statementList();
         returnStatement();
 
+        outFile.println("#Restore register $ra and $fp");
         emitInstruction("lw", "$ra","4($fp)");
         emitInstruction("lw", "$fp","0($fp)");
-        emitInstruction("addi", "$sp","$sp",""+ft.getSpace());
+        emitInstruction("addi", "$sp","$sp",""+ft.space,"#pop stack all at once");
         emitInstruction("jr", "$ra");
 
         consume(RIGHTBRACE);
 
         st.enterFunc(currentfunction, ft);
         //Reset function
+
         ft.reset();
 
         this.array_space = 0; //Reset the record for array space use within a function calling stack
@@ -166,11 +179,11 @@ public class Parser implements Constants
             case INT:
                 parameter();
                 parameterTail();
-                space = -4*(ft.argLength()+2);
-                emitInstruction("addi", "$sp","$sp",space+"");
-                for(int i=0;i<ft.args_num;i++)
+                space = -4*(ft.local_args_num+2);
+                emitInstruction("addi", "$sp","$sp",space+"","#Create space for args ,$ra and $fp");
+                for(int i=0;i<ft.local_args_num;i++)
                 {
-                    emitInstruction("sw","$a"+i,(4*(ft.argLength()+1-i))+"($sp)");
+                    emitInstruction("sw","$a"+i,(4*(ft.local_args_num+1-i))+"($sp)");
                 }
                 emitInstruction("sw", "$ra","4($sp)");
                 emitInstruction("sw", "$fp","0($sp)");
@@ -178,7 +191,7 @@ public class Parser implements Constants
                 return space;
             default:
                 space = -8;
-                emitInstruction("addi", "$sp","$sp",space+"");
+                emitInstruction("addi", "$sp","$sp",space+"","#Create space for $ra and $fp");
                 emitInstruction("sw", "$ra","4($sp)");
                 emitInstruction("sw", "$fp","0($sp)");
                 emitInstruction("move", "$fp","$sp");
@@ -195,7 +208,7 @@ public class Parser implements Constants
                 consume(INT);
                 String nameGloble = currentToken.image;
                 st.addGlobal(nameGloble);// Add this global variable into the symbol table
-                emitInstruction("addi","$gp","$gp","4"); // Spare some space for global variabless
+                emitInstruction("addi","$gp","$gp","4","#Space for variable: "+nameGloble); // Spare some space for global variabless
                 consume(ID);
                 globalTail();
                 consume(SEMICOLON);
@@ -225,7 +238,7 @@ public class Parser implements Constants
                 consume(COMMA);
                 String nameGloble = currentToken.image;
                 st.addGlobal(nameGloble);
-                emitInstruction("addi","$gp","$gp","4"); // Spare some space for global variabless
+                emitInstruction("addi","$gp","$gp","4","#Space for variable: "+nameGloble); // Spare some space for global variabless
                 consume(ID);
 
             default:
@@ -240,12 +253,12 @@ public class Parser implements Constants
         {
             case INT:
                 consume(INT);
-                ft.varEnter(currentToken.image);
+                ft.Enter(currentToken.image, INT);
                 consume(ID);
                 localTail();
-                space = (-4)*ft.varLength();
+                space = 4*ft.local_var_num;
                 //Expand memory space according to the declaration
-                emitInstruction("addi", "$sp","$sp",""+space);
+                emitInstruction("addi", "$sp","$sp","-"+space,"#Create space for local variables");
                 consume(SEMICOLON);
                 //Recursively call this function and sum the overall space together!
                 space += localDeclarations();
@@ -255,12 +268,13 @@ public class Parser implements Constants
                 //Process ID: "id[xxx]"
                 String id = currentToken.image;
                 space = Integer.parseInt(id.substring(id.indexOf('[')+1, id.indexOf(']')))*4;
-                ft.arrEnter(currentToken.image,space); //Enter this array into the symbol table
+
+                ft.Enter(currentToken.image, ARRAY,space);
 
                 consume(ID);
                 consume(SEMICOLON);
 
-                emitInstruction("addi", "$sp","$sp","-"+space); //!!!!!!!!!!!!!!!!!!!!!!!!
+                emitInstruction("addi", "$sp","$sp","-"+space,"#Create space for :  "+id); //!!!!!!!!!!!!!!!!!!!!!!!!
                 System.out.println("Successfully parse array!");
                 space += localDeclarations();
                 return space;
@@ -275,7 +289,7 @@ public class Parser implements Constants
         {
             case COMMA:
                 consume(COMMA);
-                ft.varEnter(currentToken.image);
+                ft.Enter(currentToken.image, INT);
                 consume(ID);
                 localTail();
             default:
@@ -287,7 +301,7 @@ public class Parser implements Constants
     {
         consume(INT);
         //enter the args into the symtable of this function
-        ft.argEnter(currentToken.image);
+        ft.Enter(currentToken.image, ARGS);
         consume(ID);
     }
 
@@ -479,6 +493,7 @@ public class Parser implements Constants
             case RETURN:
                 consume(RETURN);
                 String reg_result = isNeedRegister(expr());
+                outFile.println("#return value of "+currentfunction);
                 emitInstruction("move", "$v0",reg_result);
                 consume(SEMICOLON);
 
@@ -508,7 +523,7 @@ public class Parser implements Constants
         System.out.println("reg"+rm.registerT_count);
         System.out.println("reg"+rm.registerS_count);
 
-        emitInstruction("addi", "$sp","$sp",""+save_reg);
+        emitInstruction("addi", "$sp","$sp",""+save_reg,"# "+(reg_t+reg_s)+" registers need to be saved");
 
         int pointer = -save_reg-4;
         for(int i=reg_s-1;i>=0;i--)
@@ -522,8 +537,11 @@ public class Parser implements Constants
             pointer-=4;
         }
 
+        //ft.base_offset += (reg_s+reg_t)*4;
+
         rm.resetRegister();
 
+        outFile.println("# Execute function: "+func_name);
         emitInstruction("jal",func_name);
 
         pointer = 0;
@@ -540,7 +558,10 @@ public class Parser implements Constants
             emitInstruction("lw", "$s"+i,pointer+"($sp)");
             pointer+=4;
         }
-        emitInstruction("addi", "$sp","$sp",""+(-1)*save_reg);
+
+        //ft.base_offset = 0;
+
+        emitInstruction("addi", "$sp","$sp",""+(-1)*save_reg,"#Saved "+(reg_s+reg_t)+" registers pop stack");
     }
     /**
      * @ArgumentList
@@ -599,14 +620,13 @@ public class Parser implements Constants
                 /**
                  * If not global array, see if it's an array defined within function
                  * */
-                offset = ft.arrLocate(name);
+                offset = ft.getOffset(name, ARRAY);
                 emitInstruction("lw", reg,offset+arr_index*4+"($sp)");
             }else
             {
                 int base = st.getGlobalVarSize(); //Start from the last item of global variables
                 emitInstruction("lw",reg,base+offset+arr_index*4+"($gp)");
             }
-
 //            System.out.println("String name:"+name);
 //            System.out.println("String name:"+offset);
         }else {
@@ -623,7 +643,7 @@ public class Parser implements Constants
             /**
              * If not global variables, consider if it's local variable
              * */
-            index = ft.argLocate(var);
+            index = ft.getOffset(var, ARGS);
             if(index >= 0)
             {
                 //If this variable is defined in args list
@@ -631,13 +651,13 @@ public class Parser implements Constants
                  * The push sequence and index sequence are inverse
                  * So we need some tricks
                  * */
-                emitInstruction("lw",reg, (4*(ft.argLength()+1)-index*4)+"($fp)");
+                emitInstruction("lw",reg, index+"($fp)");
             }
             else if(index < 0)
             {
                 //If this variable is defined in local variables list
-                index = ft.varLocate(var);
-                if(index >= 0)emitInstruction("lw",reg, this.array_space+(4*(ft.varLength()-1)-index*4)+"($sp)");
+                index = ft.getOffset(var,INT);
+                if(index >= 0)emitInstruction("lw",reg, index+"($sp)");
 
             }
             if(index < 0) throw genEx(var+" not defined");
@@ -655,15 +675,13 @@ public class Parser implements Constants
 
             if(offset < 0)
             {
-                offset = ft.arrLocate(name);
+                offset = ft.getOffset(name, ARRAY);
                 emitInstruction("sw", reg,offset+arr_index*4+"($sp)");
             }else
             {
                 int base = st.getGlobalVarSize(); //Start from the last item of global variables
                 emitInstruction("sw",reg,base+offset+arr_index*4+"($gp)");
             }
-
-
         }else{
             //Firstly we find these variables in global variable list
             index = st.locateGlobal(var);
@@ -673,16 +691,16 @@ public class Parser implements Constants
                 emitInstruction("sw", reg,(index*4)+"($gp)");
                 return;
             }
-            index = ft.argLocate(var);
+            index = ft.getOffset(var, ARGS);
             //Defined in args list
             if(index >= 0)
             {
-                emitInstruction("sw",reg, (4*(ft.argLength()+1)-index*4)+"($fp)");
+                emitInstruction("sw",reg, index+"($fp)");
             }
             else if(index < 0)
             {
-                index = ft.varLocate(var);
-                emitInstruction("sw",reg, this.array_space+(4*(ft.varLength()-1)-index*4)+"($sp)");
+                index = ft.getOffset(var,INT);
+                emitInstruction("sw",reg, index+"($sp)");
             }
             if(index < 0) throw genEx(var+" not defined");
         }
@@ -695,6 +713,7 @@ public class Parser implements Constants
         consume(ID);
         String reg = rm.registerAvailable();
 
+        outFile.println("#Assignment statement for varaible: "+left_op);
         loadVariable(reg,left_op);
 
         st.enter(t.image); // Here we need to consider whether it is an array, if so, stop entering into the function table!!!!!!!!!!!!!!!
@@ -716,7 +735,7 @@ public class Parser implements Constants
         emitInstruction("move", reg,reg_temp);
 
         saveVariable(reg,t.image);
-
+        outFile.println("#The end of assignment");
         rm.resetRegister();
         System.out.println(temp);
         consume(SEMICOLON);
@@ -759,6 +778,17 @@ public class Parser implements Constants
 
         emitInstruction("move","$a0",reg_temp);
         outFile.println("syscall");
+        //Always have a "\n"
+        emitInstruction("la", "$t0","Str0");
+        emitInstruction("li", "$v0","4");
+        emitInstruction("move", "$a0","$t0");
+        outFile.println("syscall");
+        /**
+         * la	$t0,	Str0
+         * li	$v0,	4
+         * move	$a0,	$t0
+         * syscall
+         * */
         consume(RIGHTPAREN);
         consume(SEMICOLON);
     }
