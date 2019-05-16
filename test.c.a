@@ -1,0 +1,157 @@
+	.text
+move	$fp,	$sp
+jal	main
+j	exit
+
+factor:
+addi	$sp,	$sp,	-12			#Create space for args ,$ra and $fp
+sw	$a0,	8($sp)
+sw	$ra,	4($sp)
+sw	$fp,	0($sp)
+move	$fp,	$sp
+lw	$t0,	8($fp)
+li	$t1,	1
+sgt	$s0,	$t0,	$t1
+beq	$zero,	$s0,	L0
+lw	$t0,	8($fp)
+lw	$t1,	8($fp)
+li	$t2,	1
+sub	$t3,	$t1,	$t2
+move	$a0,	$t3
+addi	$sp,	$sp,	-16			# 4 registers need to be saved
+sw	$t3,	12($sp)
+sw	$t2,	8($sp)
+sw	$t1,	4($sp)
+sw	$t0,	0($sp)
+# Execute function: factor
+jal	factor
+lw	$t0,	0($sp)
+lw	$t1,	4($sp)
+lw	$t2,	8($sp)
+lw	$t3,	12($sp)
+addi	$sp,	$sp,	16			#Saved 4 registers pop stack
+mult	$t0,	$v0
+mflo	$t0
+#return value of factor
+move	$v0,	$t0
+j	L1
+L0:
+li	$t1,	1
+#return value of factor
+move	$v0,	$t1
+L1:
+#Restore register $ra and $fp
+lw	$ra,	4($fp)
+lw	$fp,	0($fp)
+addi	$sp,	$sp,	12			#pop stack all at once
+jr	$ra
+
+main:
+addi	$sp,	$sp,	-12			#Create space for args ,$ra and $fp
+sw	$a0,	8($sp)
+sw	$ra,	4($sp)
+sw	$fp,	0($sp)
+move	$fp,	$sp
+addi	$sp,	$sp,	-400			#Create space for :  s[100]
+addi	$sp,	$sp,	-8			#Create space for local variables
+addi	$sp,	$sp,	-16			#Create space for :  s2[4]
+#println Statement
+la	$t2,	Str1
+li	$v0,	4
+move	$a0,	$t2
+syscall
+#Assignment statement for varaible: s2[1]
+lw	$t3,	4($sp)
+li	$t4,	100
+move	$t3,	$t4
+sw	$t3,	4($sp)
+#The end of assignment
+#Assignment statement for varaible: a
+lw	$t0,	20($sp)
+li	$t1,	456
+move	$t0,	$t1
+sw	$t0,	20($sp)
+#The end of assignment
+#Assignment statement for varaible: s[3]
+lw	$t0,	36($sp)
+lw	$t1,	20($sp)
+li	$t2,	655
+mult	$t2,	$t1
+mflo	$t3
+lw	$t4,	4($sp)
+add	$t5,	$t4,	$t3
+move	$t0,	$t5
+sw	$t0,	36($sp)
+#The end of assignment
+#Assignment statement for varaible: argtest
+lw	$t0,	8($fp)
+li	$t1,	456
+move	$t0,	$t1
+sw	$t0,	8($fp)
+#The end of assignment
+#Assignment statement for varaible: s[3]
+lw	$t0,	36($sp)
+lw	$t1,	8($fp)
+li	$t2,	655
+mult	$t2,	$t1
+mflo	$t3
+lw	$t4,	4($sp)
+add	$t5,	$t4,	$t3
+move	$t0,	$t5
+sw	$t0,	36($sp)
+#The end of assignment
+#println Statement
+lw	$t0,	36($sp)
+li	$v0,	1
+move	$a0,	$t0
+syscall
+la	$t0,	Str0
+li	$v0,	4
+move	$a0,	$t0
+syscall
+#Assignment statement for varaible: times
+lw	$t1,	16($sp)
+li	$t2,	6
+move	$t1,	$t2
+sw	$t1,	16($sp)
+#The end of assignment
+#Assignment statement for varaible: a
+lw	$t0,	20($sp)
+lw	$t1,	16($sp)
+move	$a0,	$t1
+addi	$sp,	$sp,	-8			# 2 registers need to be saved
+sw	$t1,	4($sp)
+sw	$t0,	0($sp)
+# Execute function: factor
+jal	factor
+lw	$t0,	0($sp)
+lw	$t1,	4($sp)
+addi	$sp,	$sp,	8			#Saved 2 registers pop stack
+move	$t0,	$v0
+sw	$t0,	20($sp)
+#The end of assignment
+#println Statement
+la	$t0,	Str2
+li	$v0,	4
+move	$a0,	$t0
+syscall
+#println Statement
+lw	$t1,	20($sp)
+li	$v0,	1
+move	$a0,	$t1
+syscall
+la	$t0,	Str0
+li	$v0,	4
+move	$a0,	$t0
+syscall
+#Restore register $ra and $fp
+lw	$ra,	4($fp)
+lw	$fp,	0($fp)
+addi	$sp,	$sp,	436			#pop stack all at once
+jr	$ra
+exit:
+
+	.data
+Str0:	.asciiz	"\n"
+Str1:	.asciiz	"==========\n"
+Str2:	.asciiz	"Result of recursive test:\n"

@@ -21,7 +21,11 @@ public class StringMgr
     public String enter(String str)
     {
         String str_id = stringIdAvailable();
-        collection.add(str+"\n");
+        str = str.substring(1, str.length()-1);
+        if(!str_id.equals("Str0"))
+            collection.add(str+"\\n");
+        else
+            collection.add(str);
         return str_id;
     }
     public int getSize()

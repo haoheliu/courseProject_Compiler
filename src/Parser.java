@@ -136,7 +136,10 @@ public class Parser implements Constants
     private void functionDefinition()
     {
         consume(DEF);
-        consume(VOID);
+        switch (currentToken.kind){
+            case INT:consume(INT);break;
+            case VOID:consume(VOID);break;
+        }
         //Entrance of a function
         outFile.println("\n"+currentToken.image+":");
         //Update the function parsing in
@@ -1177,7 +1180,7 @@ public class Parser implements Constants
         for(int i=0;i<sm.getSize();i++)
         {
             String str = sm.getItem(i);
-            outFile.println("Str"+i+":\t"+".asciiz\t"+str);
+            outFile.println("Str"+i+":\t"+".asciiz\t"+"\""+str+"\"");
         }
     }
 }
