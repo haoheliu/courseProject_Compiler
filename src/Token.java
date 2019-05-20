@@ -37,4 +37,3 @@ public class Token implements java.io.Serializable {
         return image;
     }
 }
-

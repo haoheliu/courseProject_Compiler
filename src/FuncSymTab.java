@@ -9,6 +9,7 @@ class FuncSymTab implements Constants
 
     public int local_var_num;
     public int local_args_num;
+    public int local_const_num;
 
     public int space;
 
@@ -21,6 +22,7 @@ class FuncSymTab implements Constants
         this.base_offset = 0;
         this.local_var_num = 0;
         this.local_args_num = 0;
+        this.local_const_num = 0;
     }
     /**
      * Enter for ARRAY
@@ -52,6 +54,7 @@ class FuncSymTab implements Constants
                 //Update the number of localVariables as well as args
                 if(type == INT) this.local_var_num ++;
                 if(type == ARGS)this.local_args_num++;
+                if(type == CONST)this.local_const_num++;
             }else{
                 throw new RuntimeException("Error: ["+name+"] Variable has already been defined");
             }
@@ -82,6 +85,10 @@ class FuncSymTab implements Constants
      * */
     public void initCalBasementValue()
     {
+        if(vars.size() == 0)
+        {
+            return;
+        }
         int offset = 0;
         Var temp = new Var();
         for(int i=vars.size();i>0;i--)
@@ -122,7 +129,6 @@ class FuncSymTab implements Constants
             else break;
             vars.set(i, temp);  //Update this element to : vars
         }
-
     }
 
     public void reset()

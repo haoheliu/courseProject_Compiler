@@ -2,8 +2,7 @@ CourseProject - Compiler
 
 <u>Using java to implement a simple compiler</u>
 
-<!-- TOC -->
-autoauto- [1. Overall mindmap 思路](#1-overall-mindmap-思路)auto- [2. Syntax support 支持的语法](#2-syntax-support-支持的语法)auto    - [2.1. alrithmetic 算术语法](#21-alrithmetic-算术语法)auto        - [2.1.1. calculations(- +,-,*,/)](#211-calculations---)auto        - [2.1.2. boolean expressions (and,or)](#212-boolean-expressions-andor)auto        - [2.1.3. comparision (>,<,<=,>=,!=,==)](#213-comparision-)auto        - [2.1.4. 赋值语句](#214-赋值语句)auto    - [2.2. 选择和分支](#22-选择和分支)auto        - [2.2.1. if-else](#221-if-else)auto        - [2.2.2. switch(尚未实现)](#222-switch尚未实现)auto        - [2.2.3. while](#223-while)auto        - [2.2.4. 全局变量](#224-全局变量)auto        - [2.2.5. const常量](#225-const常量)auto        - [2.2.6. function Defination](#226-function-defination)auto        - [2.2.7. functioncall](#227-functioncall)auto        - [2.2.8. goto & dest](#228-goto--dest)auto    - [2.3. Built-in functions](#23-built-in-functions)auto        - [2.3.1. 标准输出](#231-标准输出)auto        - [2.3.2. 标准输入 (尚未实现)](#232-标准输入-尚未实现)auto    - [2.4. 字符串与转义字符](#24-字符串与转义字符)auto    - [2.5. Comment](#25-comment)auto    - [2.6. Error report](#26-error-report)auto        - [2.6.1. 一个通用的报错函数](#261-一个通用的报错函数)auto        - [2.6.2. 局部符号表FuncSymTab的报错](#262-局部符号表funcsymtab的报错)auto        - [2.6.3. 全局符号表的报错](#263-全局符号表的报错)auto        - [2.6.4. 寄存器分配溢出错误](#264-寄存器分配溢出错误)auto- [3. 一些实现细节 (详见代码注释)](#3-一些实现细节-详见代码注释)auto    - [3.1. 函数内部定义的变量在load和save的时候如何在内存中定位](#31-函数内部定义的变量在load和save的时候如何在内存中定位)auto    - [3.2. 被调用者保存寄存器的实现](#32-被调用者保存寄存器的实现)auto    - [3.3. 函数调用直接用于算术表达式](#33-函数调用直接用于算术表达式)auto    - [3.4. 符号表设计（全局符号表和局部符号表）](#34-符号表设计全局符号表和局部符号表)auto    - [3.5. 局部变量与局部数组同时存在时如何正确定位数组基址](#35-局部变量与局部数组同时存在时如何正确定位数组基址)auto    - [3.6. 寄存器分配复位的时机](#36-寄存器分配复位的时机)auto    - [3.7. 各种变量和数组的load、save逻辑](#37-各种变量和数组的loadsave逻辑)auto- [4. 文法设计](#4-文法设计)auto    - [4.1. 上层文法：程序，函数定义，全局声明](#41-上层文法程序函数定义全局声明)auto    - [4.2. 中层文法：不同种类的statements](#42-中层文法不同种类的statements)auto    - [4.3. 中层文法细化->非终结符的产生式](#43-中层文法细化-非终结符的产生式)auto    - [4.4. 低层文法：布尔表达式，算术表达式](#44-低层文法布尔表达式算术表达式)auto- [5. Key problems 重点问题](#5-key-problems-重点问题)auto    - [5.1. Design of function calling stack 函数调用栈设计](#51-design-of-function-calling-stack-函数调用栈设计)auto    - [5.2. Strategy for register management 寄存器分配设计](#52-strategy-for-register-management-寄存器分配设计)auto- [6. Test cases:](#6-test-cases)auto    - [6.1. Recursive function calling & breakStatement &continue Statement & globalStatement](#61-recursive-function-calling--breakstatement-continue-statement--globalstatement)auto    - [6.2. 数组测试](#62-数组测试)auto    - [6.3. 递归调用寄存器保存测试:](#63-递归调用寄存器保存测试)auto    - [6.4. 全局数组测试](#64-全局数组测试)autoauto<!-- /TOC -->
+<!-- TOC -->autoauto- [1. Overall mindmap 思路](#1-overall-mindmap-思路)auto- [2. Syntax support 支持的语法](#2-syntax-support-支持的语法)auto    - [2.1. alrithmetic 算术语法](#21-alrithmetic-算术语法)auto        - [2.1.1. calculations(- +,-,*,/)](#211-calculations---)auto        - [2.1.2. boolean expressions (and,or)](#212-boolean-expressions-andor)auto        - [2.1.3. comparision (>,<,<=,>=,!=,==)](#213-comparision-)auto        - [2.1.4. 赋值语句](#214-赋值语句)auto    - [2.2. 选择和分支](#22-选择和分支)auto        - [2.2.1. if-else](#221-if-else)auto        - [2.2.2. switch(尚未实现)](#222-switch尚未实现)auto        - [2.2.3. while](#223-while)auto        - [2.2.4. 全局变量](#224-全局变量)auto        - [2.2.5. const常量](#225-const常量)auto        - [2.2.6. function Defination](#226-function-defination)auto        - [2.2.7. functioncall](#227-functioncall)auto        - [2.2.8. goto & dest](#228-goto--dest)auto    - [2.3. Built-in functions](#23-built-in-functions)auto        - [2.3.1. 标准输出](#231-标准输出)auto        - [2.3.2. 标准输入 (尚未实现)](#232-标准输入-尚未实现)auto    - [2.4. 字符串与转义字符](#24-字符串与转义字符)auto    - [2.5. Comment](#25-comment)auto    - [2.6. Error report](#26-error-report)auto        - [2.6.1. 一个通用的报错函数](#261-一个通用的报错函数)auto        - [2.6.2. 局部符号表FuncSymTab的报错](#262-局部符号表funcsymtab的报错)auto        - [2.6.3. 全局符号表的报错](#263-全局符号表的报错)auto        - [2.6.4. 寄存器分配溢出错误](#264-寄存器分配溢出错误)auto- [3. 一些实现细节 (详见代码注释)](#3-一些实现细节-详见代码注释)auto    - [3.1. 函数内部定义的变量在load和save的时候如何在内存中定位](#31-函数内部定义的变量在load和save的时候如何在内存中定位)auto    - [3.2. 被调用者保存寄存器的实现](#32-被调用者保存寄存器的实现)auto    - [3.3. 函数调用直接用于算术表达式](#33-函数调用直接用于算术表达式)auto    - [3.4. 符号表设计（全局符号表和局部符号表）](#34-符号表设计全局符号表和局部符号表)auto    - [3.5. 局部变量与局部数组同时存在时如何正确定位数组基址](#35-局部变量与局部数组同时存在时如何正确定位数组基址)auto    - [3.6. 寄存器分配复位的时机](#36-寄存器分配复位的时机)auto    - [3.7. 各种变量和数组的load、save逻辑](#37-各种变量和数组的loadsave逻辑)auto- [4. 文法设计](#4-文法设计)auto    - [4.1. 上层文法：程序，函数定义，全局声明](#41-上层文法程序函数定义全局声明)auto    - [4.2. 中层文法：不同种类的statements](#42-中层文法不同种类的statements)auto    - [4.3. 中层文法细化->非终结符的产生式](#43-中层文法细化-非终结符的产生式)auto    - [4.4. 低层文法：布尔表达式，算术表达式](#44-低层文法布尔表达式算术表达式)auto- [5. Key problems 重点问题](#5-key-problems-重点问题)auto    - [5.1. Design of function calling stack 函数调用栈设计](#51-design-of-function-calling-stack-函数调用栈设计)auto    - [5.2. Strategy for register management 寄存器分配设计](#52-strategy-for-register-management-寄存器分配设计)auto- [6. Test cases:](#6-test-cases)auto    - [6.1. Recursive function calling & breakStatement &continue Statement & globalStatement](#61-recursive-function-calling--breakstatement-continue-statement--globalstatement)auto    - [6.2. 数组测试](#62-数组测试)auto    - [6.3. 递归调用寄存器保存测试:](#63-递归调用寄存器保存测试)auto    - [6.4. 全局数组测试](#64-全局数组测试)autoauto<!-- /TOC -->
 
 # 1. Overall mindmap 思路
 词法分析器->语法分析器（递归下降，语法制导翻译）->寄存器分配和代码优化->MIPS指令
@@ -18,9 +17,9 @@ autoauto- [1. Overall mindmap 思路](#1-overall-mindmap-思路)auto- [2. Syntax
 ### 2.1.2. boolean expressions (and,or)
 - and相当于C语言中的:&&
 - or相当于C语言中的:||
-- 支持短路 -> *尚未实现*
+- 支持短路
 
-### 2.1.3. comparision (>,<,<=,>=,!=,==)
+### 2.1.3. comparision (>,<,<=,>=,==)
 - 与正常C语言含义相同
 - 可以将多个比较运算符使用and和or进行连接
 
@@ -45,7 +44,6 @@ ARRAY[n]|INTEGER = EXPRESSION
          [statementList]...
    }
 ```
-### 2.2.2. switch(尚未实现)
 ### 2.2.3. while
 语法
 ```c
@@ -58,6 +56,7 @@ ARRAY[n]|INTEGER = EXPRESSION
 ```
 - break:正常的跳出语句
 - continue：接着进行循环
+
 ### 2.2.4. 全局变量
 语法：
 ```c
@@ -73,7 +72,6 @@ array global_arr2[LENGTH2];
 - 全局array变量 
 - 全局变量存储在内存的堆区，使用$gp指针进行检索  
 
-### 2.2.5. const常量
 
 ### 2.2.6. function Defination
 语法：
@@ -83,6 +81,8 @@ def void/int <FUNCTIONNAME>(int PARAM1,int PARAM2,...)
    int var1,var2,...;  
    array arr1[LENGTH1];
    array arr2[LENGTH2];
+   ...
+   const int c1 = 123;
    ...
    [StatementList]...
    [returnStatement]...
@@ -107,6 +107,12 @@ def void factor( int N ){
 ```
 - 函数内部可以使用全局int 和 array变量
 
+### 2.2.5. const常量
+语法：
+```c
+const int <ID> = EXPR;
+```
+- CONST声明过的变量在试图修改值(saveVariable())的时候会报错
 
 ### 2.2.7. functioncall 
 语法：
@@ -360,7 +366,8 @@ public String registerAvailable()
 
 **localDeclarations**			->  
 |"array" "[" &lt;UNSIGNED&gt; "]" ";"  **localDeclarations**   
-|”int” &lt;ID&gt; **localTail** “;” **localDeclarations**   
+|”int” &lt;ID&gt; **localTail** “;” **localDeclarations**     
+|"const" "int" &lt;ID> "=" expr ";"  **localDeclarations*
 |ε{&lt;ID&gt;,”println”,”{”,”while”,”if”,”return”,”cal”}
 
 **localTail** 					-&gt;	”,” &lt;ID&gt; **localTail**  
@@ -374,6 +381,8 @@ public String registerAvailable()
 **statement** 					-&gt; 	**assignmentAndBoolen**{&lt;ID&gt;}
 
 **statement**					-&gt;	**printlnStatement**{”println”}
+
+// **statement**->**assertStatement**  {"assert"}
 
 **statement** 					-&gt;	**compoundStatement**{“{”}
 
@@ -443,12 +452,11 @@ public String registerAvailable()
 
 **termList**						-&gt;	”+”  term termList  
 |”-” **term** **termlist**  
-|”==”  **expr**  
-|”&gt;=”  **expr**  
-|”&lt;=”  **expr**  
-|”&gt;”  **expr**  
-|”&lt;”  **expr**  
-|**boolenExpression**	{“and”,”or”,“)”,”;”,”,”}  
+|”==”  **expr**    **boolenExpression**  {“and”,”or”,“)”,”;”,”,”}  
+|”&gt;=”  **expr**    **boolenExpression**  
+|”&lt;=”  **expr**  **boolenExpression**  
+|”&gt;”  **expr**  **boolenExpression**  
+|”&lt;”  **expr**  **boolenExpression**  
 |ε{“)”,”;”,”,”}
 
 
@@ -659,7 +667,9 @@ def void main(int argtest)
 
 
 ```c
-def void factor( int N ){
+
+
+def int factor( int N ){
 	if( N > 1 ){
 		return N * cal factor( N - 1 );
 	}
@@ -668,25 +678,77 @@ def void factor( int N ){
 	}
 }
 
-def void main(int argtest)
+//def int Fibonacci(int n)
+//{
+//    if(n == 1)
+//}
+
+def void main(int argtest,int argtest2)
 {
-    //                                                                      ARRAY TEST
+                                                //ARRAY TEST
     array s[100];
     int a,times;              //test whether the offset is set correctly
     array s2[4];
+    const int test = 50+8*(66+3);
+    println("******************Compiler naive****************");
+    println("*****************author:Haohe Liu***************");
+    println("*******************START TEST*******************");
+    println("----------------1.array test----------------");
     s2[1] = 100;
-    //                                                                          LOCAL TEST
-    //a = 456;    
-    //s[3] = 655*a + s2[1] ;  //test the load and save of array element
-    //                                                                          ARGS TEST
+    a = 456;
+    s[3] = 655*a + s2[1];    //test the load and save of array element
     argtest = 456;
     s[3] = 655*argtest + s2[1] ;  //test the load and save of array element
     println(s[3]);
-    //                                                                      RECURSIVE TEST
+
+    println("end");
+                                                //RECURSIVE TEST
+    println("----------------2.recursive test------------");
     times = 6;
     a = cal factor(times);
-    println("Result of recursive test: \n");
+    println("Result of recursive test:");
     println(a);
-    println("\n");
+    println("end");
+                                                //CONST TEST
+                                                //WHILE TEST
+    println("----------------3.while test----------------");
+    while(times >= 0)
+    {
+        println(times);
+        times  = times -1;
+    }
+    println("end");
+                                                //IF TEST
+    println("----------------4.if test----------------");
+    println("end");
+                                                //GOTO TEST
+    println("----------------5.goto test----------------");
+    println("end");
+                                                //SHORT CIRCUIT TEST
+    println("----------------6.short circuit test----------------");
+    println("end");
+    println("----------------7.constant modification test----------------");
+    //test = 100;  //Const variable cannot be modified
+    println("end");
+
+
+}
+```
+
+```c
+// and 测试
+def void main(int argtest)
+{
+    int a,b,c;              //test whether the offset is set correctly
+    a = 10;
+    b =5;
+    c = 100;
+    while(a>=2 and b>=1 and c>=99)
+    {
+        a = a-1;
+        b = b-1;
+        c = c-1;
+        println(a);
+    }
 }
 ```

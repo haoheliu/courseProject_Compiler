@@ -71,7 +71,7 @@ public class Compiler
         //输入为一个.c--
         String inFileName = args[0];
         //输出为一个.a文件，可以为我们的assembler使用
-        String outFileName = args[0] + ".a";
+        String outFileName = args[0] + ".output";
         //文件读取
         Scanner inFile = new Scanner(new File(inFileName));
         //文件输出

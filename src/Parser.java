@@ -243,7 +243,6 @@ public class Parser implements Constants
                 st.addGlobal(nameGloble);
                 emitInstruction("addi","$gp","$gp","4","#Space for variable: "+nameGloble); // Spare some space for global variabless
                 consume(ID);
-
             default:
                 break;
         }
@@ -252,6 +251,7 @@ public class Parser implements Constants
     private int localDeclarations()
     {
         int space = 0;
+        String res_reg;
         switch (currentToken.kind)
         {
             case INT:
@@ -281,6 +281,19 @@ public class Parser implements Constants
                 System.out.println("Successfully parse array!");
                 space += localDeclarations();
                 return space;
+            case CONST:
+                consume(CONST);
+                consume(INT);
+                String var = currentToken.image;
+                ft.Enter(var, CONST);
+                emitInstruction("addi", "$sp","$sp","-4","#Create space for const variable: "+var);
+                consume(ID);
+                consume(ASSIGN);
+                res_reg = expr();
+                res_reg = isNeedRegister(res_reg);
+                emitInstruction("sw", res_reg,"0($sp)");
+                rm.resetRegister();
+                consume(SEMICOLON);
             default:
                 return 0;
         }
@@ -663,6 +676,15 @@ public class Parser implements Constants
                 if(index >= 0)emitInstruction("lw",reg, index+"($sp)");
 
             }
+            /**
+             * If not local variables, consider if it's const variable
+             * */
+            if(index <0)
+            {
+                index = ft.getOffset(var, CONST);
+                if(index >= 0)emitInstruction("lw", reg,index+"($sp)");
+            }
+
             if(index < 0) throw genEx(var+" not defined");
         }
     }
@@ -686,6 +708,13 @@ public class Parser implements Constants
                 emitInstruction("sw",reg,base+offset+arr_index*4+"($gp)");
             }
         }else{
+            /**
+             * First consider whether it is a const variable
+             * */
+            if(ft.getOffset(var, CONST)>=0)
+            {
+                throw new RuntimeException("Error: Const variable "+var+" is read only");
+            }
             //Firstly we find these variables in global variable list
             index = st.locateGlobal(var);
             System.out.println("index of the globle variable: "+index);
@@ -761,6 +790,7 @@ public class Parser implements Constants
                 outFile.println("syscall");
                 consume(RIGHTPAREN);
                 consume(SEMICOLON);
+                rm.resetRegister();
                 return;
             }
         }
@@ -794,6 +824,8 @@ public class Parser implements Constants
          * */
         consume(RIGHTPAREN);
         consume(SEMICOLON);
+
+        rm.resetRegister();
     }
 
     private void compoundStatement()
@@ -807,7 +839,7 @@ public class Parser implements Constants
     {
         String judge_point = identifierAvailable(); //Start the judge of while statement
         String judge_exit = identifierAvailable(); // The label of the exit point of while statement
-
+        outFile.println("# WhileStatement");
         exitpoint = judge_exit; // These two label are used by break and continue statements
         judgepoint = judge_point;
 
@@ -831,6 +863,7 @@ public class Parser implements Constants
     private void ifStatement() {
         String judge_else = identifierAvailable();
         String judge_exit = identifierAvailable();
+        exitpoint = judge_exit; //Used for short circuit supported
         consume(IF);
         consume(LEFTPAREN);
         String judge = expr();
@@ -946,6 +979,8 @@ public class Parser implements Constants
 
                 termlist_syn = reg_result;
 
+                booleanExpression(reg_result);
+
                 rm.resetRegister();
                 System.out.println("EQUAL, Diter: "+inh+" "+termlist_syn);
                 break;
@@ -962,8 +997,10 @@ public class Parser implements Constants
                 emitInstruction("sge", reg_result,reg_inh,reg_term_val);
 
                 termlist_syn = reg_result;
-                rm.resetRegister();
 
+                booleanExpression(reg_result); //!!!!!!!!!!!!!!!!!
+
+                rm.resetRegister();
                 System.out.println("GREATER_EQUAL_THAN, compare: "+reg_inh+" "+reg_term_val);
                 break;
 
@@ -979,6 +1016,9 @@ public class Parser implements Constants
                 emitInstruction("sle", reg_result,reg_inh,reg_term_val);
 
                 termlist_syn = reg_result;
+
+                booleanExpression(reg_result);
+
                 rm.resetRegister();
 
                 System.out.println("SMALLER_EQUAL_THAN, compare: "+inh+" "+termlist_syn);
@@ -995,6 +1035,9 @@ public class Parser implements Constants
                 emitInstruction("sgt", reg_result,reg_inh,reg_term_val);
 
                 termlist_syn = reg_result;
+
+                booleanExpression(reg_result);
+
                 rm.resetRegister();
                 System.out.println("GREATER_THAN, compare: "+inh+" "+termlist_syn);
                 break;
@@ -1010,18 +1053,16 @@ public class Parser implements Constants
                 emitInstruction("slt",reg_result, reg_inh,reg_term_val);
 
                 termlist_syn = reg_result;
+
+                booleanExpression(reg_result);
+
                 rm.resetRegister();
                 System.out.println("SMALLER_THAN, compare: "+inh+" "+termlist_syn);
                 break;
-            case AND:
-            case OR:
-                booleanExpression();
-                termlist_syn = inh;//!!!!!!!!!!!!!!!!wrong
-
-
-                break;
             case RIGHTPAREN:
             case SEMICOLON:
+            case OR:
+            case AND:
                 termlist_syn = inh;
                 break;
             default:
@@ -1031,19 +1072,32 @@ public class Parser implements Constants
         return termlist_syn;
     }
 
-    private void booleanExpression()
+    private void booleanExpression(String inh)
     {
+        String boolean_syn,expr_syn,reg_res;
         switch (currentToken.kind)
         {
             case AND:
                 consume(AND);
-                expr();
-                booleanExpression();
+                expr_syn = expr();
+
+                reg_res = rm.registerS_Available();
+
+                emitInstruction("beq", "$zero",inh,exitpoint,"#Short circuit supported");
+
+                emitInstruction("and",reg_res,inh,expr_syn);
+
+                booleanExpression(reg_res);
                 break;
             case OR:
                 consume(OR);
-                expr();
-                booleanExpression();
+                expr_syn = expr();
+
+                reg_res = rm.registerS_Available();
+
+                emitInstruction("or", reg_res,inh,expr_syn);
+
+                booleanExpression(inh);
                 break;
             default:
                 break;
@@ -1109,6 +1163,7 @@ public class Parser implements Constants
             case SMALLER_THAN:
                 factorlist_syn = inh;
                 break;
+            //Basically doing nothing
             case AND:
             case OR: //~!!!!!!!!!!!!!!!!!!!!!!!!!wrong
                 factorlist_syn = inh;
