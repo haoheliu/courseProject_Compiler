@@ -59,7 +59,6 @@ public class Compiler
 {
     public static void main(String[] args) throws IOException
     {
-
         if (args.length != 1)
         {
             //命令行需要有待编译的文件名
@@ -155,6 +154,9 @@ interface Constants
 
     int CONST = 44; //Used as variable type
     int ARGS = 45;  //Used as variable type
+
+    int EXIT = 46; //Used as the force quit of the hole program
+    int ASSERT = 47;
 
     // tokenImage provides string for each token kind
     String[] tokenImage =

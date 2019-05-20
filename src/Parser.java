@@ -1,6 +1,495 @@
 import java.io.PrintWriter;
 import java.util.ArrayList;
 
+
+/**
+ *
+ *
+ * About the compiler:
+ *  function:
+ *      compiler the C-like language to MIPS instructions
+ *  Error  report:
+ *      Inside the switch-case block, throw error encountered
+ *
+ * The grammer we support now:
+ *  Variable definations:
+ *      All variable is considered as int type.Once we use a identifier, it will be considered defined
+ *  Assignment statement:
+ *      Assign a value(int,string,expression) to an idenetifier, if use a identifier before initialization, the variable will be
+ *      automatically set 0
+ *  Calculation:
+ *      We support :
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *          Ops: +,-,*,/
+ *          Order change: ()
+ *  Select block:
+ *      if-else:
+ *          if(exp1){}
+ *          else(exp2){}
+ *      while:
+ *          while(exp1){}
+ *  Boolean expression:
+ *      ==:equal
+ *      >=:greater or equal than
+ *      <=:less or equal than
+ *      <:less than
+ *      >:greater than
+ *      Compound Boolean expression is temporarily not realized
+ *  Comment:
+ *      use double backslash to add comment:
+ *          example: //comments
+ *  Other built-in functions:
+ *      println():
+ *          print the number to output device
+ *          print the string to output device
+ *              the String can contain quotes, for example: "Compiler \\\" construction"
+ *
+ *
+ * */
+
 public class Parser implements Constants
 {
     private SymTab st;
@@ -364,6 +853,8 @@ public class Parser implements Constants
             case RETURN:
             case LEFTBRACE:
             case SWITCH:
+            case EXIT:
+            case ASSERT:
                 statement();
                 statementList();
                 break;
@@ -405,6 +896,12 @@ public class Parser implements Constants
             case SWITCH:
                 switchStatement();
                 break;
+            case EXIT:
+                exitStatement();
+                break;
+            case ASSERT:
+                assertStatement();
+                break;
             case GOTO:
             case BREAK:
             case CONTINUE:
@@ -414,6 +911,39 @@ public class Parser implements Constants
             default:
                 throw genEx("Expecting statement");
         }
+    }
+
+    private void assertStatement()
+    {
+        String judge_continue = identifierAvailable();
+        String judge_exit = identifierAvailable();
+        outFile.println("# Assert statement");
+        consume(ASSERT);
+        consume(LEFTPAREN);
+        String left_val = expr();
+        consume(COMMA);
+        String right_val = expr();
+        left_val = isNeedRegister(left_val);
+        right_val = isNeedRegister(right_val);
+        String res_reg = rm.registerS_Available();
+
+        emitInstruction("seq", res_reg,left_val,right_val);
+        emitInstruction("beq", "$zero",res_reg,judge_exit,"#If not equal, exit the hole program");
+        emitInstruction("j", judge_continue);
+        outFile.println(judge_exit+":");
+        emitInstruction("li", "$v0","10");
+        outFile.println("syscall");
+        outFile.println(judge_continue+":");
+        rm.resetRegister();
+        consume(RIGHTPAREN);
+        consume(SEMICOLON);
+    }
+    private void exitStatement()
+    {
+        consume(EXIT);
+        consume(SEMICOLON);
+        emitInstruction("li", "$v0","10");
+        outFile.println("syscall");
     }
 
     private void jumpStatement()
@@ -863,7 +1393,7 @@ public class Parser implements Constants
     private void ifStatement() {
         String judge_else = identifierAvailable();
         String judge_exit = identifierAvailable();
-        exitpoint = judge_exit; //Used for short circuit supported
+        //exitpoint = judge_exit; //Used for short circuit supported
         consume(IF);
         consume(LEFTPAREN);
         String judge = expr();
@@ -1063,6 +1593,7 @@ public class Parser implements Constants
             case SEMICOLON:
             case OR:
             case AND:
+            case COMMA:
                 termlist_syn = inh;
                 break;
             default:
@@ -1161,6 +1692,7 @@ public class Parser implements Constants
             case SMALLER_EQUAL_THAN:
             case GREATER_THAN:
             case SMALLER_THAN:
+            case COMMA:
                 factorlist_syn = inh;
                 break;
             //Basically doing nothing

@@ -128,6 +128,12 @@ public class TokenMgr implements Constants
             else
             if(token.image.equals("const"))
                 token.kind = CONST;
+            else
+            if(token.image.equals("exit"))
+                token.kind = EXIT;
+            else
+            if(token.image.equals("assert"))
+                token.kind = ASSERT;
             else  // not a keyword so kind is ID
                 token.kind = ID;
         }

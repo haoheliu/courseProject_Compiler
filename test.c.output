@@ -46,7 +46,7 @@ sw	$a0,	8($sp)
 sw	$ra,	4($sp)
 sw	$fp,	0($sp)
 move	$fp,	$sp
-addi	$sp,	$sp,	-8			#Create space for local variables
+addi	$sp,	$sp,	-8			#Create space for :  retval[2]
 lw	$t0,	8($fp)
 li	$t1,	1
 seq	$s0,	$t0,	$t1
@@ -60,8 +60,8 @@ li	$t0,	1
 move	$v0,	$t0
 j	L1
 L0:
-#Assignment statement for varaible: retVal1
-lw	$t1,	4($sp)
+#Assignment statement for varaible: retval[0]
+lw	$t1,	0($sp)
 lw	$t2,	8($fp)
 li	$t3,	1
 sub	$t4,	$t2,	$t3
@@ -81,10 +81,10 @@ lw	$t3,	12($sp)
 lw	$t4,	16($sp)
 addi	$sp,	$sp,	20			#Saved 5 registers pop stack
 move	$t1,	$v0
-sw	$t1,	4($sp)
+sw	$t1,	0($sp)
 #The end of assignment
-#Assignment statement for varaible: retVal2
-lw	$t0,	0($sp)
+#Assignment statement for varaible: retval[1]
+lw	$t0,	4($sp)
 lw	$t1,	8($fp)
 li	$t2,	2
 sub	$t3,	$t1,	$t2
@@ -102,10 +102,10 @@ lw	$t2,	8($sp)
 lw	$t3,	12($sp)
 addi	$sp,	$sp,	16			#Saved 4 registers pop stack
 move	$t0,	$v0
-sw	$t0,	0($sp)
+sw	$t0,	4($sp)
 #The end of assignment
-lw	$t0,	4($sp)
-lw	$t1,	0($sp)
+lw	$t0,	0($sp)
+lw	$t1,	4($sp)
 add	$t2,	$t1,	$t0
 #return value of Fabio
 move	$v0,	$t2
@@ -203,16 +203,36 @@ move	$a0,	$t0
 syscall
 #Assignment statement for varaible: s2[1]
 lw	$t0,	8($sp)
-li	$t1,	100
+li	$t1,	456
 move	$t0,	$t1
 sw	$t0,	8($sp)
 #The end of assignment
+# Assert statement
+lw	$t0,	8($sp)
+li	$t1,	100
+seq	$s0,	$t0,	$t1
+beq	$zero,	$s0,	L5			#If not equal, exit the hole program
+j	L4
+L5:
+li	$v0,	10
+syscall
+L4:
 #Assignment statement for varaible: a
 lw	$t0,	48($sp)
-li	$t1,	456
+li	$t1,	543
 move	$t0,	$t1
 sw	$t0,	48($sp)
 #The end of assignment
+# Assert statement
+lw	$t0,	48($sp)
+li	$t1,	543
+seq	$s0,	$t0,	$t1
+beq	$zero,	$s0,	L7			#If not equal, exit the hole program
+j	L6
+L7:
+li	$v0,	10
+syscall
+L6:
 #Assignment statement for varaible: s[3]
 lw	$t0,	64($sp)
 lw	$t1,	48($sp)
@@ -224,32 +244,55 @@ add	$t5,	$t4,	$t3
 move	$t0,	$t5
 sw	$t0,	64($sp)
 #The end of assignment
+# Assert statement
+lw	$t0,	64($sp)
+li	$t1,	356121
+seq	$s0,	$t0,	$t1
+beq	$zero,	$s0,	L9			#If not equal, exit the hole program
+j	L8
+L9:
+li	$v0,	10
+syscall
+L8:
 #Assignment statement for varaible: argtest
 lw	$t0,	8($fp)
-li	$t1,	456
+li	$t1,	100
 move	$t0,	$t1
 sw	$t0,	8($fp)
 #The end of assignment
-#Assignment statement for varaible: s[3]
-lw	$t0,	64($sp)
-lw	$t1,	8($fp)
-li	$t2,	655
-mult	$t2,	$t1
-mflo	$t3
-lw	$t4,	8($sp)
-add	$t5,	$t4,	$t3
-move	$t0,	$t5
-sw	$t0,	64($sp)
+# Assert statement
+lw	$t0,	8($fp)
+li	$t1,	100
+seq	$s0,	$t0,	$t1
+beq	$zero,	$s0,	L11			#If not equal, exit the hole program
+j	L10
+L11:
+li	$v0,	10
+syscall
+L10:
+#Assignment statement for varaible: a
+lw	$t0,	48($sp)
+li	$t1,	2
+li	$t2,	4
+add	$t3,	$t2,	$t1
+li	$t4,	100
+mult	$t3,	$t4
+mflo	$t5
+li	$t6,	1
+add	$t7,	$t5,	$t6
+move	$t0,	$t7
+sw	$t0,	48($sp)
 #The end of assignment
-#println Statement
-lw	$t0,	64($sp)
-li	$v0,	1
-move	$a0,	$t0
+# Assert statement
+lw	$t0,	48($sp)
+li	$t1,	601
+seq	$s0,	$t0,	$t1
+beq	$zero,	$s0,	L13			#If not equal, exit the hole program
+j	L12
+L13:
+li	$v0,	10
 syscall
-la	$t0,	Str0
-li	$v0,	4
-move	$a0,	$t0
-syscall
+L12:
 #println Statement
 la	$t0,	Str5
 li	$v0,	4
@@ -328,11 +371,11 @@ li	$v0,	4
 move	$a0,	$t0
 syscall
 # WhileStatement
-L4:
+L14:
 lw	$t0,	36($sp)
 lw	$t1,	32($sp)
 sle	$s0,	$t0,	$t1
-beq	$zero,	$s0,	L5
+beq	$zero,	$s0,	L15
 #Assignment statement for varaible: result
 lw	$t0,	40($sp)
 lw	$t1,	36($sp)
@@ -365,8 +408,8 @@ add	$t3,	$t2,	$t1
 move	$t0,	$t3
 sw	$t0,	36($sp)
 #The end of assignment
-j	L4
-L5:
+j	L14
+L15:
 #println Statement
 la	$t0,	Str12
 li	$v0,	4
@@ -377,6 +420,11 @@ la	$t0,	Str13
 li	$v0,	4
 move	$a0,	$t0
 syscall
+#println Statement
+la	$t0,	Str14
+li	$v0,	4
+move	$a0,	$t0
+syscall
 #Assignment statement for varaible: times
 lw	$t0,	44($sp)
 li	$t1,	10
@@ -384,11 +432,11 @@ move	$t0,	$t1
 sw	$t0,	44($sp)
 #The end of assignment
 # WhileStatement
-L6:
+L16:
 lw	$t0,	44($sp)
 li	$t1,	0
 sge	$s0,	$t0,	$t1
-beq	$zero,	$s0,	L7
+beq	$zero,	$s0,	L17
 #println Statement
 lw	$t0,	44($sp)
 li	$v0,	1
@@ -398,6 +446,14 @@ la	$t0,	Str0
 li	$v0,	4
 move	$a0,	$t0
 syscall
+lw	$t0,	44($sp)
+li	$t1,	4
+seq	$s0,	$t0,	$t1
+beq	$zero,	$s0,	L18
+j	L17
+j	L19
+L18:
+L19:
 #Assignment statement for varaible: times
 lw	$t0,	44($sp)
 lw	$t1,	44($sp)
@@ -406,13 +462,8 @@ sub	$t3,	$t1,	$t2
 move	$t0,	$t3
 sw	$t0,	44($sp)
 #The end of assignment
-j	L6
-L7:
-#println Statement
-la	$t0,	Str14
-li	$v0,	4
-move	$a0,	$t0
-syscall
+j	L16
+L17:
 #println Statement
 la	$t0,	Str15
 li	$v0,	4
@@ -420,6 +471,11 @@ move	$a0,	$t0
 syscall
 #println Statement
 la	$t0,	Str16
+li	$v0,	4
+move	$a0,	$t0
+syscall
+#println Statement
+la	$t0,	Str17
 li	$v0,	4
 move	$a0,	$t0
 syscall
@@ -433,7 +489,7 @@ li	$v0,	4
 move	$a0,	$t0
 syscall
 #println Statement
-la	$t0,	Str17
+la	$t0,	Str18
 li	$v0,	4
 move	$a0,	$t0
 syscall
@@ -453,15 +509,15 @@ lw	$t2,	32($sp)
 li	$t3,	10
 seq	$s2,	$t2,	$t3
 or	$s0,	$s0,	$s2
-beq	$zero,	$s0,	L8
+beq	$zero,	$s0,	L20
 #println Statement
-la	$t0,	Str18
+la	$t0,	Str19
 li	$v0,	4
 move	$a0,	$t0
 syscall
-j	L9
-L8:
-L9:
+j	L21
+L20:
+L21:
 lw	$t0,	36($sp)
 li	$t1,	1
 slt	$s0,	$t0,	$t1
@@ -469,25 +525,20 @@ lw	$t2,	32($sp)
 li	$t3,	10
 sgt	$s1,	$t2,	$t3
 or	$s0,	$s0,	$s1
-beq	$zero,	$s0,	L10
-#println Statement
-la	$t0,	Str19
-li	$v0,	4
-move	$a0,	$t0
-syscall
-j	L11
-L10:
+beq	$zero,	$s0,	L22
 #println Statement
 la	$t0,	Str20
 li	$v0,	4
 move	$a0,	$t0
 syscall
-L11:
+j	L23
+L22:
 #println Statement
 la	$t0,	Str21
 li	$v0,	4
 move	$a0,	$t0
 syscall
+L23:
 #println Statement
 la	$t0,	Str22
 li	$v0,	4
@@ -498,20 +549,25 @@ la	$t0,	Str23
 li	$v0,	4
 move	$a0,	$t0
 syscall
-j	end
 #println Statement
 la	$t0,	Str24
 li	$v0,	4
 move	$a0,	$t0
 syscall
-end:
+j	end
 #println Statement
 la	$t0,	Str25
 li	$v0,	4
 move	$a0,	$t0
 syscall
+end:
 #println Statement
 la	$t0,	Str26
+li	$v0,	4
+move	$a0,	$t0
+syscall
+#println Statement
+la	$t0,	Str27
 li	$v0,	4
 move	$a0,	$t0
 syscall
@@ -533,6 +589,18 @@ li	$t1,	1000
 move	$t0,	$t1
 sw	$t0,	20($sp)
 #The end of assignment
+# Assert statement
+lw	$t0,	20($sp)
+li	$t1,	1000
+seq	$s0,	$t0,	$t1
+beq	$zero,	$s0,	L25			#If not equal, exit the hole program
+j	L24
+L25:
+li	$v0,	10
+syscall
+L24:
+# WhileStatement
+L26:
 lw	$t0,	28($sp)
 li	$t1,	10
 seq	$s0,	$t0,	$t1
@@ -542,24 +610,19 @@ sle	$s2,	$t2,	$t3
 lw	$t4,	20($sp)
 li	$t5,	900
 sgt	$s4,	$t4,	$t5
-beq	$zero,	$s2,	L13			#Short circuit supported
+beq	$zero,	$s2,	L27			#Short circuit supported
 and	$s0,	$s2,	$s4
-beq	$zero,	$s0,	L13			#Short circuit supported
+beq	$zero,	$s0,	L27			#Short circuit supported
 and	$s0,	$s0,	$s2
-beq	$zero,	$s0,	L12
-#println Statement
-la	$t0,	Str27
-li	$v0,	4
-move	$a0,	$t0
-syscall
-j	L13
-L12:
-L13:
+beq	$zero,	$s0,	L27
 #println Statement
 la	$t0,	Str28
 li	$v0,	4
 move	$a0,	$t0
 syscall
+j	L27
+j	L26
+L27:
 #println Statement
 la	$t0,	Str29
 li	$v0,	4
@@ -582,6 +645,11 @@ move	$a0,	$t0
 syscall
 #println Statement
 la	$t0,	Str33
+li	$v0,	4
+move	$a0,	$t0
+syscall
+#println Statement
+la	$t0,	Str34
 li	$v0,	4
 move	$a0,	$t0
 syscall
@@ -626,7 +694,7 @@ addi	$sp,	$sp,	0			# 0 registers need to be saved
 jal	modifyGlobal
 addi	$sp,	$sp,	0			#Saved 0 registers pop stack
 #println Statement
-la	$t0,	Str34
+la	$t0,	Str35
 li	$v0,	4
 move	$a0,	$t0
 syscall
@@ -667,17 +735,44 @@ li	$v0,	4
 move	$a0,	$t0
 syscall
 #println Statement
-la	$t0,	Str35
-li	$v0,	4
-move	$a0,	$t0
-syscall
-#println Statement
 la	$t0,	Str36
 li	$v0,	4
 move	$a0,	$t0
 syscall
 #println Statement
 la	$t0,	Str37
+li	$v0,	4
+move	$a0,	$t0
+syscall
+#println Statement
+la	$t0,	Str38
+li	$v0,	4
+move	$a0,	$t0
+syscall
+#println Statement
+la	$t0,	Str39
+li	$v0,	4
+move	$a0,	$t0
+syscall
+#println Statement
+la	$t0,	Str40
+li	$v0,	4
+move	$a0,	$t0
+syscall
+#println Statement
+la	$t0,	Str41
+li	$v0,	4
+move	$a0,	$t0
+syscall
+#println Statement
+la	$t0,	Str42
+li	$v0,	4
+move	$a0,	$t0
+syscall
+li	$v0,	10
+syscall
+#println Statement
+la	$t0,	Str43
 li	$v0,	4
 move	$a0,	$t0
 syscall
@@ -692,37 +787,43 @@ Str0:	.asciiz	"\n"
 Str1:	.asciiz	"******************Compiler naive****************\n"
 Str2:	.asciiz	"*****************author:Haohe Liu***************\n"
 Str3:	.asciiz	"*******************START TEST*******************\n"
-Str4:	.asciiz	"----------------1.array test----------------\n"
-Str5:	.asciiz	"end\n"
+Str4:	.asciiz	"----------------1.Array test----------------\n"
+Str5:	.asciiz	"PASS\n"
 Str6:	.asciiz	"----------------2.recursive test------------\n"
 Str7:	.asciiz	"=========factorial test=========\n"
 Str8:	.asciiz	"\tResult of recursive test:\n\t\n"
-Str9:	.asciiz	"end\n"
+Str9:	.asciiz	"PASS\n"
 Str10:	.asciiz	"=========Fibonacci sequence test=========\n"
 Str11:	.asciiz	"\tFibonacci sequence calculated by recursion from 1 to 10\n"
-Str12:	.asciiz	"----------------3.while test----------------\n"
-Str13:	.asciiz	"\tCount down from 10 to 0:\n"
-Str14:	.asciiz	"end\n"
-Str15:	.asciiz	"----------------4.if test----------------\n"
-Str16:	.asciiz	"\tValue of start: \n\t\n"
-Str17:	.asciiz	"\tValue of end \n\t\n"
-Str18:	.asciiz	"\tstart == 1 or end == 10\n"
-Str19:	.asciiz	"\tstart < 1 or end > 10\n"
-Str20:	.asciiz	"\tstart >= 1 or end <= 10\n"
-Str21:	.asciiz	"end\n"
-Str22:	.asciiz	"----------------5.goto test----------------\n"
-Str23:	.asciiz	"\tStart of goto test, you will see nothing if it works\n"
-Str24:	.asciiz	"\tIf you see this, it means you are wrong!\n"
-Str25:	.asciiz	"end\n"
-Str26:	.asciiz	"----------------6.short circuit test----------------\n"
-Str27:	.asciiz	"\tShort circuit!\n"
-Str28:	.asciiz	"end\n"
-Str29:	.asciiz	"----------------7.constant modification test----------------\n"
-Str30:	.asciiz	"!attension: in order to perform this test, please modify the original code\n"
-Str31:	.asciiz	"end\n"
-Str32:	.asciiz	"----------------8.global modification test----------------\n"
-Str33:	.asciiz	"\tBefore modification:\n"
-Str34:	.asciiz	"\tAfter modification:\n"
-Str35:	.asciiz	"end\n"
-Str36:	.asciiz	"----------------9.String test----------------\n"
-Str37:	.asciiz	"\tThis string has a \"double quotation\" in it\n"
+Str12:	.asciiz	"PASS\n"
+Str13:	.asciiz	"----------------3.while test----------------\n"
+Str14:	.asciiz	"\tCount down from 10 to 5:\n"
+Str15:	.asciiz	"PASS\n"
+Str16:	.asciiz	"----------------4.if test----------------\n"
+Str17:	.asciiz	"\tValue of start: \n\t\n"
+Str18:	.asciiz	"\tValue of end \n\t\n"
+Str19:	.asciiz	"\tstart == 1 or end == 10\n"
+Str20:	.asciiz	"\tstart < 1 or end > 10\n"
+Str21:	.asciiz	"\tstart >= 1 or end <= 10\n"
+Str22:	.asciiz	"PASS\n"
+Str23:	.asciiz	"----------------5.goto test----------------\n"
+Str24:	.asciiz	"\tStart of goto test, you will see nothing if it works\n"
+Str25:	.asciiz	"\tIf you see this, it means you are wrong!\n"
+Str26:	.asciiz	"PASS\n"
+Str27:	.asciiz	"----------------6.short circuit test----------------\n"
+Str28:	.asciiz	"\tShort circuit!\n"
+Str29:	.asciiz	"PASS\n"
+Str30:	.asciiz	"----------------7.constant modification test----------------\n"
+Str31:	.asciiz	"!attension: in order to perform this test, please modify the original code\n"
+Str32:	.asciiz	"PASS\n"
+Str33:	.asciiz	"----------------8.global modification test----------------\n"
+Str34:	.asciiz	"\tBefore modification:\n"
+Str35:	.asciiz	"\tAfter modification:\n"
+Str36:	.asciiz	"PASS\n"
+Str37:	.asciiz	"----------------9.String test----------------\n"
+Str38:	.asciiz	"\tThis string has a \"double quotation\" in it\n"
+Str39:	.asciiz	"PASS\n"
+Str40:	.asciiz	"----------------10.exit test----------------\n"
+Str41:	.asciiz	"If you see nothing, then exit is success\n"
+Str42:	.asciiz	"PASS\n"
+Str43:	.asciiz	"Wrong man!\n"
