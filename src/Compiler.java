@@ -11,49 +11,6 @@ import org.omg.PortableInterceptor.SYSTEM_EXCEPTION;
 import java.io.*;
 import java.util.*;
 
-/**
- *
- *
- * About the compiler:
- *  function:
- *      compiler the C-like language to MIPS instructions
- *  Error  report:
- *      Inside the switch-case block, throw error encountered
- *
- * The grammer we support now:
- *  Variable definations:
- *      All variable is considered as int type.Once we use a identifier, it will be considered defined
- *  Assignment statement:
- *      Assign a value(int,string,expression) to an idenetifier, if use a identifier before initialization, the variable will be
- *      automatically set 0
- *  Calculation:
- *      We support :
- *          Ops: +,-,*,/
- *          Order change: ()
- *  Select block:
- *      if-else:
- *          if(exp1){}
- *          else(exp2){}
- *      while:
- *          while(exp1){}
- *  Boolean expression:
- *      ==:equal
- *      >=:greater or equal than
- *      <=:less or equal than
- *      <:less than
- *      >:greater than
- *      Compound Boolean expression is temporarily not realized
- *  Comment:
- *      use double backslash to add comment:
- *          example: //comments
- *  Other built-in functions:
- *      println():
- *          print the number to output device
- *          print the string to output device
- *              the String can contain quotes, for example: "Compiler \\\" construction"
- *
- *
- * */
 
 public class Compiler
 {
